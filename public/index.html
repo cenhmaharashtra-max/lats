@@ -1,0 +1,3023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Land Acquisition Tracking System</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #0a1628;
+  --navy-mid: #112240;
+  --navy-light: #1a3a5c;
+  --accent: #e8a020;
+  --accent-light: #f5c842;
+  --green: #22c55e;
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --border: rgba(255,255,255,0.08);
+  --card: rgba(255,255,255,0.04);
+  --card-hover: rgba(255,255,255,0.07);
+  --input-bg: rgba(255,255,255,0.06);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--navy);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+}
+
+/* LOGIN */
+#login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0a1628 0%, #0d2144 50%, #0a1628 100%);
+  position: relative;
+  overflow: hidden;
+}
+#login-screen::before {
+  content: '';
+  position: absolute;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(232,160,32,0.08) 0%, transparent 70%);
+  top: -100px; right: -100px;
+}
+.login-card {
+  background: var(--navy-mid);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 48px;
+  width: 400px;
+  box-shadow: 0 25px 80px rgba(0,0,0,0.5);
+  position: relative;
+  z-index: 1;
+}
+.login-logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.login-logo .emblem {
+  width: 64px; height: 64px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(232,160,32,0.3);
+}
+.login-logo h1 { font-size: 22px; font-weight: 700; color: var(--text); }
+.login-logo p { color: var(--text-dim); font-size: 12px; margin-top: 4px; letter-spacing: 2px; text-transform: uppercase; }
+.login-card .field { margin-bottom: 20px; }
+.login-card label { display: block; font-size: 12px; font-weight: 500; color: var(--text-dim); margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase; }
+.login-card input {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.login-card input:focus { border-color: var(--accent); }
+.btn-login {
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  color: var(--navy);
+  border: none;
+  border-radius: 8px;
+  padding: 14px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: opacity 0.2s, transform 0.1s;
+}
+.btn-login:hover { opacity: 0.9; transform: translateY(-1px); }
+.login-error { color: var(--red); font-size: 13px; margin-top: 12px; text-align: center; }
+
+/* APP SHELL */
+#app { display: none; min-height: 100vh; }
+.sidebar {
+  width: 240px;
+  background: var(--navy-mid);
+  border-right: 1px solid var(--border);
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  overflow-y: auto;
+  z-index: 100;
+}
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sidebar-logo .icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.sidebar-logo .text h2 { font-size: 13px; font-weight: 700; line-height: 1.2; }
+.sidebar-logo .text p { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
+.sidebar-user {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.user-avatar {
+  width: 32px; height: 32px;
+  background: var(--navy-light);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.user-info .name { font-size: 13px; font-weight: 600; }
+.user-info .role { font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+.sidebar-nav { padding: 12px 0; }
+.nav-section-label {
+  padding: 8px 20px 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: all 0.15s;
+  font-size: 13.5px;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+}
+.nav-item:hover { background: var(--card); color: var(--text); }
+.nav-item.active { background: rgba(232,160,32,0.1); color: var(--accent); border-left-color: var(--accent); }
+.nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-logout {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+.btn-logout {
+  width: 100%;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  padding: 10px;
+  color: var(--red);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-logout:hover { background: var(--red); color: #fff; }
+
+.main-content {
+  margin-left: 240px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  background: var(--navy-mid);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.topbar h1 { font-size: 18px; font-weight: 600; }
+.topbar .breadcrumb { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.page-content { padding: 28px; flex: 1; }
+
+/* CARDS & PANELS */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  transition: background 0.15s;
+}
+.stat-card:hover { background: var(--card-hover); }
+.stat-card .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.stat-card .value { font-size: 28px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
+.stat-card .sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+.stat-card.accent .value { color: var(--accent); }
+.stat-card.green .value { color: var(--green); }
+.stat-card.blue .value { color: var(--blue); }
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.panel-header h3 { font-size: 15px; font-weight: 600; }
+.panel-body { padding: 20px; }
+
+/* TABLES */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
+td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 13.5px;
+  vertical-align: middle;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--card-hover); }
+.mono { font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+
+/* BADGES */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.badge-pending { background: rgba(148,163,184,0.15); color: var(--text-dim); }
+.badge-3a { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.badge-jm { background: rgba(168,85,247,0.15); color: #c084fc; }
+.badge-3d { background: rgba(34,197,94,0.15); color: #4ade80; }
+.badge-3g { background: rgba(232,160,32,0.15); color: var(--accent-light); }
+.badge-complete { background: rgba(34,197,94,0.2); color: var(--green); }
+.badge-admin { background: rgba(232,160,32,0.2); color: var(--accent); }
+.badge-user { background: rgba(59,130,246,0.15); color: #60a5fa; }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+.btn-primary { background: var(--accent); color: var(--navy); }
+.btn-primary:hover { background: var(--accent-light); }
+.btn-secondary { background: var(--input-bg); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.15); }
+.btn-danger { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+.btn-danger:hover { background: rgba(239,68,68,0.25); }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+.btn-icon { padding: 6px; border-radius: 6px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
+.btn-icon:hover { color: var(--text); background: var(--card-hover); }
+
+/* FORMS */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.form-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+.form-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 12px; font-weight: 500; color: var(--text-dim); margin-bottom: 6px; letter-spacing: 0.5px; }
+.field input, .field select, .field textarea {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 10px 14px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+.field select option { background: var(--navy-mid); }
+.field .hint { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+.required::after { content: ' *'; color: var(--accent); }
+
+/* MODALS */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--navy-mid);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 80px rgba(0,0,0,0.5);
+  animation: slideUp 0.2s ease;
+}
+.modal.wide { max-width: 800px; }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-header h3 { font-size: 16px; font-weight: 600; }
+.modal-body { padding: 24px; }
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* PROCESS STEPPER */
+.process-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+.process-step {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+}
+.step-circle {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--text-dim);
+  transition: all 0.2s;
+}
+.step-circle.done { background: var(--green); border-color: var(--green); color: #fff; }
+.step-circle.active { background: var(--accent); border-color: var(--accent); color: var(--navy); }
+.step-label { font-size: 11px; color: var(--text-dim); font-weight: 500; white-space: nowrap; }
+.step-label.active { color: var(--accent); }
+.step-connector { width: 40px; height: 2px; background: var(--border); flex-shrink: 0; }
+.step-connector.done { background: var(--green); }
+
+/* TABS */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+.tab {
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.15s;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ALERTS */
+.alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.alert-info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); color: #93c5fd; }
+.alert-warning { background: rgba(232,160,32,0.1); border: 1px solid rgba(232,160,32,0.2); color: var(--accent-light); }
+.alert-success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #86efac; }
+
+/* SEARCH */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  min-width: 220px;
+}
+.search-bar input {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  flex: 1;
+}
+.search-bar span { color: var(--text-dim); font-size: 14px; }
+
+/* PROGRESS BAR */
+.progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  transition: width 0.3s;
+}
+
+/* SECTION VIEWS */
+.section-view { display: none; }
+.section-view.active { display: block; }
+
+/* EMPTY STATE */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-dim);
+}
+.empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state h3 { font-size: 16px; color: var(--text); margin-bottom: 8px; }
+.empty-state p { font-size: 13px; }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .main-content { margin-left: 0; }
+  .form-grid.cols-2, .form-grid.cols-3 { grid-template-columns: 1fr; }
+}
+.chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: var(--input-bg);
+  color: var(--text-dim);
+  margin: 2px;
+}
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+.text-muted { color: var(--text-dim); }
+.text-accent { color: var(--accent); }
+.text-green { color: var(--green); }
+.text-red { color: var(--red); }
+.flex { display: flex; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.flex-wrap { flex-wrap: wrap; }
+.mt-2 { margin-top: 8px; }
+.mt-4 { margin-top: 16px; }
+.mb-4 { margin-bottom: 16px; }
+.w-full { width: 100%; }
+.toast {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  background: var(--navy-mid);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 20px;
+  font-size: 13.5px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.3s;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-left: 4px solid var(--green); }
+.toast.error { border-left: 4px solid var(--red); }
+.toast.info { border-left: 4px solid var(--blue); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="emblem">🏛</div>
+      <h1>Land Acquisition Tracking System</h1>
+      <p>CHIEF ENGINEER, NATIONAL HIGHWAY (PWD)</p>
+    </div>
+    <div class="field">
+      <label>Username</label>
+      <select id="login-user" style="width:100%">
+        <option value="">— Select Username —</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="Enter password">
+    </div>
+    <button class="btn-login" id="loginBtn">Sign In</button>
+    <div class="login-error" id="login-error"></div>
+    <div style="margin-top:12px;text-align:center">
+      <span style="font-size:11px;color:var(--text-dim);cursor:pointer;text-decoration:underline" id="resetStorageLink">Reset / Clear saved data</span>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="icon">🏛</div>
+        <div class="text">
+          <h2 style="font-size:11px;line-height:1.3;letter-spacing:0.5px">LAND ACQUISITION<br>TRACKING SYSTEM</h2>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="sb-avatar">A</div>
+      <div class="user-info">
+        <div class="name" id="sb-name">Admin</div>
+        <div class="role" id="sb-role">Admin</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebar-nav"></nav>
+    <div class="nav-logout">
+      <button class="btn-logout" onclick="doLogout()">⬅ Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main-content">
+    <div class="topbar">
+      <div>
+        <h1 id="page-title">Dashboard</h1>
+        <div class="breadcrumb" id="page-breadcrumb">Home</div>
+      </div>
+      <div class="flex gap-2 items-center">
+        <span class="text-muted" style="font-size:12px;" id="current-date"></span>
+      </div>
+    </div>
+    <div class="page-content" id="page-content"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title">Modal</h3>
+      <button class="btn-icon" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// DATA STORE  (in-memory cache — synced from backend)
+// ═══════════════════════════════════════════════════════
+const DB = {
+  projects:[], villages:[],
+  process3a:[], process3aGuts:[],
+  processJM:[], processJMGuts:[],
+  process3D:[], process3DGuts:[],
+  process3G:[], process3GGuts:[],
+  assignments:[], users:[]
+};
+
+// ── API helper ──
+async function api(method, url, body) {
+  const opts = { method, credentials:'include', headers:{'Content-Type':'application/json'} };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error||res.statusText); }
+  return res.json();
+}
+
+// ── Map server rows → app camelCase ──
+function mapSync(d) {
+  DB.projects = (d.projects||[]).map(p=>({
+    id:p.id, name:p.name, tafsNo:p.tafs_no, length:p.length, tpc:p.tpc,
+    civilCost:p.civil_cost, laCost:p.la_cost, totalLand:p.total_land,
+    availLand:p.avail_land, laRequired:p.la_required, laLength:p.la_length,
+    approvalDate:p.approval_date, assignedUsers:p.assigned_users||[]
+  }));
+  DB.villages = (d.villages||[]).map(v=>({
+    id:v.id, projectId:v.project_id, name:v.name, taluka:v.taluka, isAddl:v.is_addl
+  }));
+  DB.process3a = (d.p3a||[]).map(x=>({
+    id:x.id, projectId:x.project_id, villageId:x.village_id, type:x.ptype,
+    notifDate:x.notif_date||'', calaPost:x.cala_post, calaName:x.cala_name,
+    calaMobile:x.cala_mobile, isAdditional:x.is_addl
+  }));
+  DB.process3aGuts = (d.p3aGuts||[]).map(g=>({
+    id:g.id, process3aId:g.p3a_id, gutNumber:g.gut_number, area:g.area, landType:g.land_type
+  }));
+  DB.processJM = (d.pjm||[]).map(x=>({
+    id:x.id, projectId:x.project_id, villageId:x.village_id,
+    jmDate:x.jm_date||'', sheetDate:x.sheet_date||''
+  }));
+  DB.processJMGuts = (d.pjmGuts||[]).map(g=>({
+    id:g.id, processJMId:g.pjm_id, gutNumber:g.gut_number, modArea:g.mod_area
+  }));
+  DB.process3D = (d.p3d||[]).map(x=>({
+    id:x.id, projectId:x.project_id, villageId:x.village_id, notifDate:x.notif_date||''
+  }));
+  DB.process3DGuts = (d.p3dGuts||[]).map(g=>({
+    id:g.id, process3DId:g.p3d_id, gutNumber:g.gut_number, area:g.area,
+    beneficiary:g.beneficiary, landType:g.land_type
+  }));
+  DB.process3G = (d.p3g||[]).map(x=>({
+    id:x.id, projectId:x.project_id, villageId:x.village_id, notifDate:x.notif_date||''
+  }));
+  DB.process3GGuts = (d.p3gGuts||[]).map(g=>({
+    id:g.id, process3GId:g.p3g_id, gutNumber:g.gut_number,
+    compensation:g.compensation, landType:g.land_type
+  }));
+  DB.assignments = [];
+  DB.projects.forEach(p=>(p.assignedUsers||[]).forEach(uid=>DB.assignments.push({uid,pid:p.id})));
+}
+
+async function loadDB() {
+  const data = await api('GET','/api/sync');
+  mapSync(data);
+}
+
+async function saveDB() {
+  await api('POST','/api/save', DB);
+  await loadDB();
+}
+
+function newId() { return Date.now() * 1000 + Math.floor(Math.random()*1000); }
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const p = String(d).split('-');
+  return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : d;
+}
+
+function isProjectAssigned(projectId, userId) {
+  return DB.assignments.some(a=>a.pid===projectId && a.uid===userId);
+}
+function getMyProjects() {
+  if (currentUser.role==='admin') return DB.projects;
+  return DB.projects.filter(p=>isProjectAssigned(p.id, currentUser.id));
+}
+
+// ═══════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════
+let currentUser = null;
+
+async function populateLoginDropdown() {
+  const sel = document.getElementById('login-user');
+  sel.innerHTML = '<option value="">— Select Username —</option>';
+  try {
+    const users = await api('GET','/api/auth/users');
+    DB.users = users;
+    const admin = users.find(u=>u.username==='CENH');
+    if (admin) { const o=document.createElement('option'); o.value=admin.username; o.textContent=admin.username+' (Admin)'; sel.appendChild(o); }
+    users.filter(u=>u.username!=='CENH').sort((a,b)=>a.username.localeCompare(b.username))
+      .forEach(u=>{ const o=document.createElement('option'); o.value=u.username; o.textContent=u.username; sel.appendChild(o); });
+  } catch(e) {
+    const inp = document.createElement('input');
+    inp.id='login-user-text'; inp.placeholder='Username';
+    inp.style.cssText='width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text)';
+    sel.replaceWith(inp);
+  }
+}
+
+async function doLogin() {
+  const selEl = document.getElementById('login-user');
+  const txtEl = document.getElementById('login-user-text');
+  const username = (txtEl ? txtEl.value : selEl?.value||'').trim();
+  const password = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  if (!username) { errEl.textContent='Please select a username.'; return; }
+  if (!password) { errEl.textContent='Please enter your password.'; return; }
+  errEl.textContent='Signing in…';
+  try {
+    currentUser = await api('POST','/api/auth/login',{username,password});
+    errEl.textContent='';
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    await loadDB();
+    initApp();
+  } catch(e) {
+    errEl.textContent='Invalid credentials. Please try again.';
+    document.getElementById('login-pass').value='';
+  }
+}
+
+async function doLogout() {
+  await api('POST','/api/auth/logout').catch(()=>{});
+  currentUser=null;
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-pass').value='';
+  document.getElementById('login-error').textContent='';
+  populateLoginDropdown();
+}
+
+document.addEventListener('DOMContentLoaded', async function() {
+  document.getElementById('loginBtn').addEventListener('click', doLogin);
+  document.getElementById('login-pass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+  document.getElementById('resetStorageLink').addEventListener('click', function(){
+    confirmModal('This will <strong>sign you out</strong> and reload the page.', ()=>doLogout());
+  });
+
+  try {
+    currentUser = await api('GET','/api/auth/me');
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    await loadDB();
+    initApp();
+  } catch(e) {
+    populateLoginDropdown();
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════
+// APP INIT
+// ═══════════════════════════════════════════════════════
+function initApp() {
+  document.getElementById('sb-avatar').textContent = currentUser.name[0].toUpperCase();
+  document.getElementById('sb-name').textContent = currentUser.name;
+  document.getElementById('sb-role').textContent = currentUser.role === 'admin' ? 'Administrator' : 'User';
+  document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-IN', { weekday:'short', year:'numeric', month:'short', day:'numeric' });
+  renderSidebar();
+  navigate('dashboard');
+}
+
+const adminNav = [
+  { section: 'Main', items: [
+    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'reports', label: 'Reports', icon: '📋' },
+  ]},
+  { section: 'Admin', items: [
+    { id: 'projects', label: 'Projects', icon: '📁' },
+    { id: 'users', label: 'Users', icon: '👥' },
+    { id: 'villages', label: 'Village Master', icon: '🏘' },
+  ]},
+  { section: 'LA Process', items: [
+    { id: 'la-process', label: 'LA Process Entry', icon: '📝' },
+  ]}
+];
+
+const userNav = [
+  { section: 'Main', items: [
+    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'reports', label: 'Reports', icon: '📋' },
+  ]},
+  { section: 'Work', items: [
+    { id: 'villages', label: 'Village Master', icon: '🏘' },
+    { id: 'la-process', label: 'LA Process Entry', icon: '📝' },
+  ]}
+];
+
+function renderSidebar() {
+  const nav = currentUser.role === 'admin' ? adminNav : userNav;
+  const el = document.getElementById('sidebar-nav');
+  el.innerHTML = nav.map(section => `
+    <div class="nav-section-label">${section.section}</div>
+    ${section.items.map(item => `
+      <div class="nav-item" data-page="${item.id}" id="nav-${item.id.replace('-','_')}">
+        <span class="icon">${item.icon}</span> ${item.label}
+      </div>
+    `).join('')}
+  `).join('');
+  el.querySelectorAll('.nav-item').forEach(div => {
+    div.addEventListener('click', () => navigate(div.dataset.page));
+  });
+}
+
+function setActiveNav(page) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navEl = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (navEl) navEl.classList.add('active');
+}
+
+let currentPage = '';
+function navigate(page, params) {
+  currentPage = page;
+  setActiveNav(page);
+  
+  const titles = {
+    dashboard: 'Dashboard', projects: 'Projects', users: 'User Management',
+    villages: 'Village Master', 'la-process': 'LA Process Entry', reports: 'Reports'
+  };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  document.getElementById('page-breadcrumb').textContent = 'Home / ' + (titles[page] || page);
+  
+  const content = document.getElementById('page-content');
+  content.innerHTML = '';
+  
+  if (page === 'dashboard') renderDashboard();
+  else if (page === 'projects') renderProjects();
+  else if (page === 'users') renderUsers();
+  else if (page === 'villages') renderVillages();
+  else if (page === 'la-process') renderLAProcess(params);
+  else if (page === 'reports') renderReports();
+}
+
+// ═══════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════
+function renderDashboard() {
+  const myProjects = getMyProjects();
+  const myProjectIds = myProjects.map(function(p){ return p.id; });
+
+  // Only count records that belong to active projects the user can see
+  const myVillages = DB.villages.filter(function(v){ return myProjectIds.indexOf(v.projectId) !== -1; });
+  const myVillageIds = myVillages.map(function(v){ return v.id; });
+
+  const total3a = DB.process3a.filter(function(x){ return myProjectIds.indexOf(x.projectId) !== -1 && x.type === 'lower3a'; }).length;
+  const total3A = DB.process3a.filter(function(x){ return myProjectIds.indexOf(x.projectId) !== -1 && x.type === 'upper3A'; }).length;
+  const totalJM = DB.processJM.filter(function(x){ return myProjectIds.indexOf(x.projectId) !== -1; }).length;
+  const total3D = DB.process3D.filter(function(x){ return myProjectIds.indexOf(x.projectId) !== -1; }).length;
+  const total3G = DB.process3G.filter(function(x){ return myProjectIds.indexOf(x.projectId) !== -1; }).length;
+
+  const activeG3Ids = DB.process3G.filter(function(x){ return myProjectIds.indexOf(x.projectId) !== -1; }).map(function(x){ return x.id; });
+  const totalComp = DB.process3GGuts.filter(function(g){ return activeG3Ids.indexOf(g.process3GId) !== -1; })
+    .reduce(function(s, g){ return s + (parseFloat(g.compensation) || 0); }, 0);
+
+  document.getElementById('page-content').innerHTML = `
+    <div class="stats-grid" style="grid-template-columns:repeat(6,1fr)">
+      <div class="stat-card accent">
+        <div class="label">Total Projects</div>
+        <div class="value">${myProjects.length}</div>
+        <div class="sub">Active projects</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="label">3<span style="text-transform:lowercase">a</span> Notification</div>
+        <div class="value">${total3a}</div>
+        <div class="sub">CALA notified</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">3A Details</div>
+        <div class="value">${total3A}</div>
+        <div class="sub">Gut-wise area entered</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">JM Completed</div>
+        <div class="value">${totalJM}</div>
+        <div class="sub">Joint measurement done</div>
+      </div>
+      <div class="stat-card green">
+        <div class="label">3D Completed</div>
+        <div class="value">${total3D}</div>
+        <div class="sub">Awards declared</div>
+      </div>
+      <div class="stat-card accent">
+        <div class="label">3G Compensation</div>
+        <div class="value">${total3G}</div>
+        <div class="sub">₹ ${totalComp.toLocaleString('en-IN')} total</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h3>Project Overview</h3>
+        ${currentUser.role === 'admin' ? '<button class="btn btn-primary btn-sm" onclick="navigate(\'projects\')">+ New Project</button>' : ''}
+      </div>
+      <div class="panel-body">
+        ${myProjects.length === 0 ? `<div class="empty-state"><div class="icon">📁</div><h3>No Projects Yet</h3><p>Projects will appear here once created.</p></div>` :
+        `<div class="table-wrap"><table>
+          <thead><tr><th>Project Name</th><th>TAFS No.</th><th>Total Land (Ha)</th><th>LA Required (Ha)</th><th>Progress</th><th>Actions</th></tr></thead>
+          <tbody>${myProjects.map(p => {
+            const villages3a = DB.process3a.filter(x => x.projectId === p.id).map(x => x.villageId);
+            const villages3g = DB.process3G.filter(x => x.projectId === p.id).length;
+            const pct = villages3a.length ? Math.round((villages3g / villages3a.length) * 100) : 0;
+            return `<tr>
+              <td><strong>${p.name}</strong></td>
+              <td class="mono">${p.tafsNo}</td>
+              <td class="mono">${p.totalLand}</td>
+              <td class="mono">${p.laRequired}</td>
+              <td style="min-width:120px">
+                <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+                <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${pct}% complete</div>
+              </td>
+              <td>
+                <div class="flex gap-2 flex-wrap">
+                  <button class="btn btn-secondary btn-sm" onclick="navigate('la-process',{projectId:${p.id}})">Enter LA</button>
+                  <button class="btn btn-secondary btn-sm" onclick="openCombinedEntry(${p.id},'3a')" title="Enter 3a for all villages at once">📋 3a</button>
+                  <button class="btn btn-secondary btn-sm" onclick="openCombinedEntry(${p.id},'3A')" title="Enter 3A for all villages at once">📋 3A</button>
+                  <button class="btn btn-secondary btn-sm" onclick="openCombinedEntry(${p.id},'3D')" title="Enter 3D for all villages at once">📋 3D</button>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>`}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h3>Village Wise Status</h3></div>
+      <div class="panel-body">
+        ${myVillages.length === 0 ? `<div class="empty-state"><div class="icon">🏘</div><h3>No Villages</h3><p>Add villages under a project from Village Master.</p></div>` :
+        `<div class="table-wrap"><table>
+          <thead><tr><th>Village</th><th>Taluka</th><th>Project</th><th style="text-transform:none">3a</th><th style="text-transform:none">3A</th><th>JM</th><th>3D</th><th>3G</th><th>Status</th></tr></thead>
+          <tbody>${myVillages.map(v => {
+            const proj = DB.projects.find(p => p.id === v.projectId);
+            const has3a = DB.process3a.some(x => x.villageId === v.id && x.projectId === v.projectId && x.type === 'lower3a');
+            const rec3A = DB.process3a.find(x => x.villageId === v.id && x.projectId === v.projectId && x.type === 'upper3A');
+            const has3A = rec3A && DB.process3aGuts.some(g => g.process3aId === rec3A.id);
+            const hasJM = DB.processJM.some(x => x.villageId === v.id && x.projectId === v.projectId);
+            const has3D = DB.process3D.some(x => x.villageId === v.id && x.projectId === v.projectId);
+            const has3G = DB.process3G.some(x => x.villageId === v.id && x.projectId === v.projectId);
+            let statusText = has3G ? '3G Done' : has3D ? '3D Done' : hasJM ? 'JM Done' : has3A ? '3A Done' : has3a ? '3a Done' : 'Pending';
+            let statusColor = has3G ? 'badge-complete' : has3D ? 'badge-3d' : hasJM ? 'badge-jm' : has3A ? 'badge-3a' : has3a ? 'badge-user' : 'badge-pending';
+            return `<tr>
+              <td><strong>${v.name}</strong></td><td>${v.taluka}</td>
+              <td><span class="chip">${proj?.name || '—'}</span></td>
+              <td style="text-align:center" title="3a CALA Notification">${has3a ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
+              <td style="text-align:center" title="3A Gut-wise Area">${has3A ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
+              <td style="text-align:center">${hasJM ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
+              <td style="text-align:center">${has3D ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
+              <td style="text-align:center">${has3G ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
+              <td><span class="badge ${statusColor}">${statusText}</span></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>`}
+      </div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════
+// PROJECTS
+// ═══════════════════════════════════════════════════════
+function renderProjects() {
+  const html = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>All Projects (${DB.projects.length})</h3>
+        <button class="btn btn-primary" id="newProjBtn">+ Create Project</button>
+      </div>
+      <div class="panel-body">
+        ${DB.projects.length === 0
+          ? `<div class="empty-state"><div class="icon">📁</div><h3>No Projects Created</h3><p>Create your first project using the button above.</p></div>`
+          : `<div class="table-wrap"><table>
+              <thead><tr><th>#</th><th>Project Name</th><th>TAFS No.</th><th>Length</th><th>TPC</th><th>LA Cost</th><th>Total Land (Ha)</th><th>LA Required (Ha)</th><th>Actions</th></tr></thead>
+              <tbody>
+                ${DB.projects.map((p, i) => `<tr>
+                  <td class="mono">${i+1}</td>
+                  <td><strong>${p.name}</strong></td>
+                  <td class="mono">${p.tafsNo || p.tafs || ''}</td>
+                  <td class="mono">${p.length || p.len || ''} km</td>
+                  <td class="mono">₹${Number(p.tpc||0).toLocaleString('en-IN')}</td>
+                  <td class="mono">₹${Number(p.laCost||0).toLocaleString('en-IN')}</td>
+                  <td class="mono">${p.totalLand || ''}</td>
+                  <td class="mono">${p.laRequired || p.laReq || ''}</td>
+                  <td>
+                    <div class="flex gap-2">
+                      <button class="btn btn-secondary btn-sm proj-edit-btn" data-pid="${p.id}">Edit</button>
+                      <button class="btn btn-secondary btn-sm proj-assign-btn" data-pid="${p.id}">Assign</button>
+                      <button class="btn btn-danger btn-sm proj-del-btn" data-pid="${p.id}">Delete</button>
+                    </div>
+                  </td>
+                </tr>`).join('')}
+              </tbody>
+            </table></div>`}
+      </div>
+    </div>
+  `;
+  document.getElementById('page-content').innerHTML = html;
+
+  document.getElementById('newProjBtn').addEventListener('click', function() { showProjectModal(); });
+
+  document.querySelectorAll('.proj-edit-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { showProjectModal(parseInt(btn.getAttribute('data-pid'))); });
+  });
+
+  document.querySelectorAll('.proj-assign-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { showAssignModal(parseInt(btn.getAttribute('data-pid'))); });
+  });
+
+  document.querySelectorAll('.proj-del-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const pid = parseInt(btn.getAttribute('data-pid'));
+      const proj = DB.projects.find(function(x) { return x.id === pid; });
+      confirmModal('Delete project <strong>"' + (proj ? proj.name : pid) + '"</strong> and all its data?<br>This cannot be undone.', function() {
+        try {
+          DB.projects = DB.projects.filter(function(x) { return x.id !== pid; });
+          if (DB.assignments) DB.assignments = DB.assignments.filter(function(x) { return x.pid !== pid; });
+          if (DB.projectAssignments) DB.projectAssignments = DB.projectAssignments.filter(function(x) { return x.projectId !== pid; });
+          var vids = DB.villages.filter(function(v) { return v.projectId === pid; }).map(function(v) { return v.id; });
+          DB.villages = DB.villages.filter(function(v) { return v.projectId !== pid; });
+          vids.forEach(function(vid) { deleteFromStage(1, vid, pid); });
+          saveDB();
+          showToast('Project deleted successfully.', 'info');
+          renderProjects();
+        } catch(err) {
+          showToast('Error: ' + err.message, 'error');
+        }
+      });
+    });
+  });
+}
+
+function deleteProject(id) {
+  // kept for compatibility — redirect to new logic
+  const btn = document.querySelector('.proj-del-btn[data-pid="' + id + '"]');
+  if (btn) btn.click();
+}
+
+function showProjectModal(id) {
+  const p = id ? DB.projects.find(x => x.id === id) : null;
+  const title = p ? 'Edit Project' : 'Create New Project';
+  openModal(title, `
+    <div class="form-grid cols-2">
+      <div class="field" style="grid-column:1/-1">
+        <label class="required">Project Name</label>
+        <input id="pf-name" value="${p?.name||''}" placeholder="e.g. National Highway 48 Extension">
+      </div>
+      <div class="field"><label class="required">TAFS Number</label><input id="pf-tafs" value="${p?.tafsNo||''}" placeholder="e.g. TAFS/2024/001"></div>
+      <div class="field"><label>Length (km)</label><input id="pf-len" type="number" value="${p?.length||''}" placeholder="0.00"></div>
+      <div class="field"><label>TPC (₹)</label><input id="pf-tpc" type="number" value="${p?.tpc||''}" placeholder="0"></div>
+      <div class="field"><label>Civil Cost (₹)</label><input id="pf-civil" type="number" value="${p?.civilCost||''}" placeholder="0"></div>
+      <div class="field"><label>LA Cost (₹)</label><input id="pf-lacost" type="number" value="${p?.laCost||''}" placeholder="0"></div>
+      <div class="field"><label>Total Land Required (Ha)</label><input id="pf-total" type="number" value="${p?.totalLand||''}" placeholder="0.00" oninput="(function(){var t=parseFloat(document.getElementById('pf-total').value)||0;var a=parseFloat(document.getElementById('pf-avail').value)||0;document.getElementById('pf-la').value=t>0||a>0?(t-a).toFixed(4):''})()"></div>
+      <div class="field"><label>Available Land (Ha)</label><input id="pf-avail" type="number" value="${p?.availLand||''}" placeholder="0.00" oninput="(function(){var t=parseFloat(document.getElementById('pf-total').value)||0;var a=parseFloat(document.getElementById('pf-avail').value)||0;document.getElementById('pf-la').value=t>0||a>0?(t-a).toFixed(4):''})()"></div>
+      <div class="field"><label>Land to be Acquired (Ha) <span style="font-size:10px;color:#4ade80;font-weight:400">(auto = Total − Available)</span></label><input id="pf-la" type="number" value="${p?.laRequired||''}" placeholder="Auto-calculated" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4);color:var(--text)" readonly></div>
+      <div class="field"><label>Length Affected due to LA (km)</label><input id="pf-laLen" type="number" value="${p?.laLength||''}" placeholder="0.00"></div>
+    </div>
+  `, [
+    { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
+    { label: p ? 'Update Project' : 'Create Project', cls: 'btn-primary', action: () => saveProject(id) }
+  ]);
+  document.querySelector('.modal').classList.add('wide');
+}
+
+function saveProject(id) {
+  const name = document.getElementById('pf-name').value.trim();
+  const tafsNo = document.getElementById('pf-tafs').value.trim();
+  if (!name || !tafsNo) { showToast('Project name and TAFS number are required.', 'error'); return; }
+  const data = {
+    name, tafsNo,
+    length: document.getElementById('pf-len').value,
+    tpc: document.getElementById('pf-tpc').value,
+    civilCost: document.getElementById('pf-civil').value,
+    laCost: document.getElementById('pf-lacost').value,
+    totalLand: document.getElementById('pf-total').value,
+    availLand: document.getElementById('pf-avail').value,
+    laRequired: document.getElementById('pf-la').value,
+    laLength: document.getElementById('pf-laLen').value,
+  };
+  if (id) {
+    const p = DB.projects.find(x => x.id === id);
+    Object.assign(p, data);
+    showToast('Project updated successfully.', 'success');
+  } else {
+    DB.projects.push({ id: newId(), ...data });
+    showToast('Project created successfully.', 'success');
+  }
+  saveDB(); closeModal(); renderProjects();
+}
+
+function showAssignModal(projectId) {
+  const p = DB.projects.find(x => x.id === projectId);
+  const assigned = (DB.assignments || []).filter(a => a.pid === projectId).map(a => a.uid);
+  const users = DB.users.filter(u => u.role !== 'admin');
+  openModal(`Assign Users — ${p.name}`, `
+    <p class="text-muted mb-4">Select users to assign to this project:</p>
+    ${users.length === 0 ? '<div class="alert alert-info">No users created yet. Go to User Management to create users.</div>' :
+    users.map(u => `
+      <label style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);margin-bottom:8px;background:var(--card)">
+        <input type="checkbox" id="assign-${u.id}" ${assigned.includes(u.id)?'checked':''} style="width:16px;height:16px;accent-color:var(--accent)">
+        <span><strong>${u.username}</strong></span>
+      </label>
+    `).join('')}
+  `, [
+    { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
+    { label: 'Save Assignments', cls: 'btn-primary', action: () => saveAssignments(projectId, users) }
+  ]);
+}
+
+function saveAssignments(projectId, users) {
+  if (!DB.assignments) DB.assignments = [];
+  DB.assignments = DB.assignments.filter(a => a.pid !== projectId);
+  users.forEach(u => {
+    if (document.getElementById('assign-' + u.id)?.checked) {
+      DB.assignments.push({ uid: u.id, pid: projectId });
+    }
+  });
+  saveDB(); closeModal(); showToast('Assignments saved.', 'success');
+}
+
+// ═══════════════════════════════════════════════════════
+// USERS
+// ═══════════════════════════════════════════════════════
+async function renderUsers() {
+  if (currentUser.role === 'admin') {
+    try { DB.users = await api('GET', '/api/auth/users'); } catch(e) {}
+  }
+  const normalUsers = DB.users.filter(u => u.role !== 'admin');
+  document.getElementById('page-content').innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>System Users (${normalUsers.length})</h3>
+        <button class="btn btn-primary" onclick="showUserModal()">+ Create User</button>
+      </div>
+      <div class="panel-body">
+        ${normalUsers.length === 0 ? `<div class="empty-state"><div class="icon">👥</div><h3>No Users Yet</h3><p>Create user accounts to assign projects.</p></div>` :
+        `<div class="table-wrap"><table>
+          <thead><tr><th>#</th><th>Username</th><th>Role</th><th>Assigned Projects</th><th>Actions</th></tr></thead>
+          <tbody>${normalUsers.map((u,i) => {
+            const projs = (DB.assignments || []).filter(a => a.uid === u.id)
+              .map(a => DB.projects.find(p => p.id === a.pid)?.name || '')
+              .filter(Boolean);
+            return `<tr>
+              <td class="mono">${i+1}</td>
+              <td><strong>${u.username}</strong></td>
+              <td><span class="badge badge-user">User</span></td>
+              <td>${projs.length ? projs.map(n => `<span class="chip">${n}</span>`).join('') : '<span class="text-muted">None assigned</span>'}</td>
+              <td>
+                <div class="flex gap-2">
+                  <button class="btn btn-secondary btn-sm" onclick="showUserModal(${u.id})">Edit</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>`}
+      </div>
+    </div>
+  `;
+}
+
+function showUserModal(id) {
+  const u = id ? DB.users.find(x => x.id === id) : null;
+  openModal(u ? 'Edit User' : 'Create New User', `
+    <div class="field"><label class="required">Username</label><input id="uf-user" value="${u?.username||''}" placeholder="Enter username"></div>
+    <div class="field"><label class="${u?'':'required'}">Password ${u?'(leave blank to keep current)':''}</label><input type="password" id="uf-pass" placeholder="Enter password"></div>
+  `, [
+    { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
+    { label: u ? 'Update User' : 'Create User', cls: 'btn-primary', action: () => saveUser(id) }
+  ]);
+}
+
+async function saveUser(id) {
+  const username = document.getElementById('uf-user').value.trim();
+  const password = document.getElementById('uf-pass').value;
+  if (!username) { showToast('Username is required.', 'error'); return; }
+  if (!id && !password) { showToast('Password is required.', 'error'); return; }
+  try {
+    if (id) {
+      await api('PUT', `/api/auth/users/${id}`, { name: username, password: password||undefined });
+      showToast('User updated.', 'success');
+    } else {
+      await api('POST', '/api/auth/users', { username, password, name: username });
+      showToast('User created.', 'success');
+    }
+    DB.users = await api('GET', '/api/auth/users');
+    closeModal(); renderUsers(); populateLoginDropdown();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function deleteUser(id) {
+  const u = DB.users.find(x => x.id === id);
+  confirmModal('Delete user <strong>"' + (u ? u.username : id) + '"</strong>?', async function() {
+    try {
+      await api('DELETE', `/api/auth/users/${id}`);
+      DB.projects.forEach(p => { if (p.assignedUsers) p.assignedUsers = p.assignedUsers.filter(uid => uid !== id); });
+      await saveDB();
+      DB.users = await api('GET', '/api/auth/users');
+      showToast('User deleted.', 'info'); renderUsers(); populateLoginDropdown();
+    } catch(e) { showToast(e.message, 'error'); }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// VILLAGES (Project-wise)
+// ═══════════════════════════════════════════════════════
+let villageSelectedProject = null;
+
+function renderVillages() {
+  // Admin sees all projects; users see only their assigned projects
+  const availableProjects = currentUser.role === 'admin'
+    ? DB.projects
+    : getMyProjects();
+
+  const projectOptions = availableProjects.map(p =>
+    `<option value="${p.id}" ${villageSelectedProject === p.id ? 'selected' : ''}>${p.name}</option>`
+  ).join('');
+
+  const filteredVillages = villageSelectedProject
+    ? DB.villages.filter(v => v.projectId === villageSelectedProject)
+    : [];
+
+  const selectedProject = DB.projects.find(p => p.id === villageSelectedProject);
+
+  document.getElementById('page-content').innerHTML = `
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-body">
+        <div class="flex gap-3 items-center flex-wrap">
+          <div class="field" style="margin:0;min-width:260px">
+            <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-dim);font-weight:500;">SELECT PROJECT</label>
+            <select id="vil-proj-sel">
+              <option value="">— Select a Project —</option>
+              ${projectOptions}
+            </select>
+          </div>
+          ${villageSelectedProject ? `
+            <div style="margin-top:20px">
+              <button class="btn btn-primary" onclick="showVillageModal()">+ Add Village</button>
+            </div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    ${availableProjects.length === 0 ? `
+      <div class="empty-state"><div class="icon">📁</div><h3>No Projects Assigned</h3><p>You have no projects assigned. Contact the Admin to get projects assigned to you.</p></div>
+    ` : !villageSelectedProject ? `
+      <div class="empty-state"><div class="icon">📁</div><h3>Select a Project</h3><p>Choose a project above to view and manage its villages.</p></div>
+    ` : `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Villages under: <span class="text-accent">${selectedProject?.name || ''}</span> &nbsp;<span style="font-size:13px;color:var(--text-dim)">(${filteredVillages.length} villages)</span></h3>
+      </div>
+      <div class="panel-body">
+        ${filteredVillages.length === 0
+          ? `<div class="empty-state"><div class="icon">🏘</div><h3>No Villages Added</h3><p>Click "+ Add Village" to add villages for this project.</p></div>`
+          : `<div class="table-wrap"><table>
+              <thead><tr><th>#</th><th>Village Name</th><th>Taluka</th><th>Project</th><th>Actions</th></tr></thead>
+              <tbody>${filteredVillages.map((v, i) => `<tr>
+                <td class="mono">${i + 1}</td>
+                <td><strong>${v.name}</strong></td>
+                <td>${v.taluka}</td>
+                <td><span class="chip">${selectedProject?.name || ''}</span></td>
+                <td>
+                  <div class="flex gap-2">
+                    <button class="btn btn-secondary btn-sm" onclick="showVillageModal(${v.id})">Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteVillage(${v.id})">Delete</button>
+                  </div>
+                </td>
+              </tr>`).join('')}</tbody>
+            </table></div>`
+        }
+      </div>
+    </div>`}
+  `;
+
+  document.getElementById('vil-proj-sel').addEventListener('change', function () {
+    villageSelectedProject = this.value ? parseInt(this.value) : null;
+    renderVillages();
+  });
+}
+
+function showVillageModal(id) {
+  const v = id ? DB.villages.find(x => x.id === id) : null;
+  const projectName = DB.projects.find(p => p.id === villageSelectedProject)?.name || '';
+  openModal(v ? 'Edit Village' : 'Add Village', `
+    <div class="alert alert-info" style="margin-bottom:16px">📁 Project: <strong>${projectName}</strong></div>
+    <div class="field"><label class="required">Village Name</label><input id="vf-name" value="${v?.name || ''}" placeholder="Enter village name"></div>
+    <div class="field"><label class="required">Taluka</label><input id="vf-taluka" value="${v?.taluka || ''}" placeholder="Enter taluka name"></div>
+  `, [
+    { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
+    { label: v ? 'Update' : 'Add Village', cls: 'btn-primary', action: () => saveVillage(id) }
+  ]);
+}
+
+function saveVillage(id) {
+  const name = document.getElementById('vf-name').value.trim();
+  const taluka = document.getElementById('vf-taluka').value.trim();
+  if (!name || !taluka) { showToast('All fields are required.', 'error'); return; }
+  if (id) {
+    const v = DB.villages.find(x => x.id === id);
+    v.name = name; v.taluka = taluka;
+    showToast('Village updated.', 'success');
+  } else {
+    if (!villageSelectedProject) { showToast('Please select a project first.', 'error'); return; }
+    DB.villages.push({ id: newId(), name, taluka, projectId: villageSelectedProject });
+    showToast('Village added.', 'success');
+  }
+  saveDB(); closeModal(); renderVillages();
+}
+
+function deleteVillage(id) {
+  const v = DB.villages.find(function(x){ return x.id === id; });
+  confirmModal('Delete village <strong>"' + (v ? v.name : id) + '"</strong>?', function() {
+    DB.villages = DB.villages.filter(x => x.id !== id);
+    saveDB(); showToast('Village deleted.', 'info'); renderVillages();
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// LA PROCESS  —  5 STAGES: 3a → 3A → JM → 3D → 3G
+//
+//  3a (lowercase) = CALA appointment notification for the village
+//  3A (UPPERCASE) = Gut-number wise area notification (Section 3A)
+//  JM             = Joint Measurement of guts
+//  3D             = Declaration / Award with beneficiary names
+//  3G             = Compensation payment per beneficiary
+// ═══════════════════════════════════════════════════════
+let laState = { projectId: null, villageId: null, tab: 'lower3a' };
+
+function renderLAProcess(params) {
+  const myProjects = currentUser.role === 'admin'
+    ? DB.projects
+    : getMyProjects();
+
+  if (params?.projectId) laState.projectId = params.projectId;
+
+  const projVillages = laState.projectId
+    ? DB.villages.filter(v => v.projectId === laState.projectId)
+    : [];
+
+  document.getElementById('page-content').innerHTML = `
+    <div class="panel mb-4">
+      <div class="panel-body">
+        <div class="flex gap-3 items-center flex-wrap">
+          <div class="field" style="margin:0;min-width:260px">
+            <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-dim);font-weight:500;">SELECT PROJECT</label>
+            <select id="la-project-sel">
+              <option value="">— Select Project —</option>
+              ${myProjects.map(p => `<option value="${p.id}" ${laState.projectId==p.id?'selected':''}>${p.name}</option>`).join('')}
+            </select>
+          </div>
+          ${laState.projectId ? `
+          <div class="field" style="margin:0;min-width:260px">
+            <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-dim);font-weight:500;">SELECT VILLAGE</label>
+            <select id="la-village-sel">
+              <option value="">— Select Village —</option>
+              ${projVillages.map(v => `<option value="${v.id}" ${laState.villageId==v.id?'selected':''}>${v.name} (${v.taluka})</option>`).join('')}
+            </select>
+          </div>
+          ${projVillages.length === 0 ? `
+            <div style="margin-top:20px">
+              <div class="alert alert-warning" style="margin:0">⚠ No villages for this project. Add villages via <strong>Village Master</strong>.</div>
+            </div>` : ''}
+          ${laState.villageId && currentUser.role === 'admin' ? `
+            <div style="margin-top:20px">
+              <button class="btn btn-danger btn-sm" id="delAllVilBtn">🗑 Delete All LA Data for This Village</button>
+            </div>` : ''}
+          ` : ''}
+        </div>
+      </div>
+    </div>
+    <div id="la-content"></div>
+  `;
+
+  document.getElementById('la-project-sel').addEventListener('change', function() {
+    laState.projectId = this.value ? parseInt(this.value) : null;
+    laState.villageId = null;
+    laState.tab = 'lower3a';
+    renderLAProcess();
+  });
+
+  if (document.getElementById('la-village-sel')) {
+    document.getElementById('la-village-sel').addEventListener('change', function() {
+      laState.villageId = this.value ? parseInt(this.value) : null;
+      laState.tab = 'lower3a';
+      renderLATabs();
+    });
+  }
+
+  if (document.getElementById('delAllVilBtn')) {
+    document.getElementById('delAllVilBtn').addEventListener('click', function() {
+      const vName = DB.villages.find(v => v.id === laState.villageId)?.name || 'this village';
+      confirmModal('Delete <strong>ALL</strong> LA process data (3a, 3A, JM, 3D, 3G) for <strong>"' + vName + '"</strong>?<br>This cannot be undone.', function() {
+        deleteVillageProcess(laState.villageId, laState.projectId);
+        laState.tab = 'lower3a';
+        showToast('All LA data for ' + vName + ' deleted.', 'info');
+        renderLATabs();
+      });
+    });
+  }
+
+  if (laState.projectId && laState.villageId) renderLATabs();
+}
+
+function laTabClick(tabKey, prereqDone, prereqLabel) {
+  if (!prereqDone) {
+    showToast('⚠ Complete ' + prereqLabel + ' First', 'error');
+    return;
+  }
+  laState.tab = tabKey;
+  renderLATabs();
+}
+
+function renderLATabs() {
+  const v = DB.villages.find(x => x.id === laState.villageId);
+  if (!v) return;
+
+  // Stage completion flags
+  const hasLower3a = DB.process3a.some(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'lower3a');
+  const _rec3A     = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
+  const hasUpper3A = _rec3A && DB.process3aGuts.some(g => g.process3aId === _rec3A.id);
+  const hasJM      = DB.processJM.some(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
+  const has3D      = DB.process3D.some(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
+  const has3G      = DB.process3G.some(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
+
+  // Step definitions
+  const steps = [
+    { key: 'lower3a', label: '3a Notification',  done: hasLower3a, num: 1 },
+    { key: 'upper3A', label: '3A Details',        done: hasUpper3A, num: 2 },
+    { key: 'jm',      label: 'JM Process',        done: hasJM,      num: 3 },
+    { key: '3d',      label: '3D Declaration',    done: has3D,      num: 4 },
+    { key: '3g',      label: '3G Compensation',   done: has3G,      num: 5 },
+  ];
+
+  // Tab lock logic
+  const locks = {
+    lower3a: { allowed: true,         prereq: '' },
+    upper3A: { allowed: hasLower3a,   prereq: '3a Notification' },
+    jm:      { allowed: hasUpper3A,   prereq: '3A Details' },
+    '3d':    { allowed: hasJM,        prereq: 'JM Process' },
+    '3g':    { allowed: has3D,        prereq: '3D Declaration' },
+    addl:    { allowed: true,         prereq: '' },
+  };
+
+  document.getElementById('la-content').innerHTML = `
+    <div class="process-steps">
+      ${steps.map((s, i) => `
+        <div class="process-step">
+          <div class="step-item">
+            <div class="step-circle ${s.done ? 'done' : laState.tab === s.key ? 'active' : ''}">${s.done ? '✓' : s.num}</div>
+            <div class="step-label ${laState.tab === s.key ? 'active' : ''}">${s.label}</div>
+          </div>
+          ${i < steps.length - 1 ? `<div class="step-connector ${s.done ? 'done' : ''}"></div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="tabs" id="la-tabs">
+      ${steps.map(s => {
+        const lock = locks[s.key];
+        const isActive = laState.tab === s.key;
+        const locked = !lock.allowed;
+        return `<div class="tab ${isActive ? 'active' : ''} ${locked ? 'tab-locked' : ''}"
+          style="${locked ? 'opacity:0.45;cursor:not-allowed;position:relative;' : 'cursor:pointer;'}"
+          data-tab="${s.key}" data-allowed="${lock.allowed}" data-prereq="${lock.prereq}"
+          title="${locked ? '⚠ Complete ' + lock.prereq + ' First' : ''}">
+          ${locked ? '🔒 ' : ''}${s.label}
+        </div>`;
+      }).join('')}
+      <div class="tab ${laState.tab === 'addl' ? 'active' : ''}" data-tab="addl" data-allowed="true" data-prereq="" style="cursor:pointer;">
+        Additional Area
+      </div>
+    </div>
+
+    <div id="la-tab-content"></div>
+  `;
+
+  // Attach tab click events using event listeners (no inline onclick)
+  document.querySelectorAll('#la-tabs .tab').forEach(function(tabEl) {
+    tabEl.addEventListener('click', function() {
+      const allowed = this.getAttribute('data-allowed') === 'true';
+      const prereq  = this.getAttribute('data-prereq');
+      const tabKey  = this.getAttribute('data-tab');
+      if (!allowed) {
+        showToast('⚠ Complete ' + prereq + ' First', 'error');
+        return;
+      }
+      laState.tab = tabKey;
+      renderLATabs();
+    });
+  });
+
+  // Render active tab content
+  if      (laState.tab === 'lower3a') renderTab_lower3a();
+  else if (laState.tab === 'upper3A') renderTab_upper3A(hasLower3a);
+  else if (laState.tab === 'jm')      renderTab_JM(hasUpper3A);
+  else if (laState.tab === '3d')      renderTab_3D(hasJM);
+  else if (laState.tab === '3g')      renderTab_3G(has3D);
+  else if (laState.tab === 'addl')    renderTab_Addl();
+}
+
+// ─────────────────────────────────────────────────────
+// STAGE 1: 3a (lowercase) — CALA Appointment Notification
+// ─────────────────────────────────────────────────────
+function renderTab_lower3a() {
+  const existing = DB.process3a.find(x =>
+    x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'lower3a');
+  const isAdmin = currentUser.role === 'admin';
+  document.getElementById('la-tab-content').innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Stage 1: 3a — CALA Appointment Notification</h3>
+        <div class="flex gap-2 items-center">
+          <span class="badge ${existing ? 'badge-complete' : 'badge-pending'}">${existing ? '✓ Saved' : 'Pending'}</span>
+          ${isAdmin && existing ? `<button class="btn btn-danger btn-sm" id="del_low3a_btn">🗑 Delete</button>` : ''}
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="alert alert-info" style="margin-bottom:18px">
+          ℹ <strong>3a</strong> is the initial notification appointing the Competent Authority for Land Acquisition (CALA) for this village.
+        </div>
+        <div class="form-grid cols-2">
+          <div class="field"><label class="required">3a Notification Date</label>
+            <input type="date" id="f_low3a_date" value="${existing?.notifDate||''}"></div>
+          <div class="field"><label class="required">CALA Post / Designation</label>
+            <input id="f_low3a_post" value="${existing?.calaPost||''}" placeholder="e.g. Special Land Acquisition Officer"></div>
+          <div class="field"><label class="required">CALA Name</label>
+            <input id="f_low3a_name" value="${existing?.calaName||''}" placeholder="Full name of officer"></div>
+          <div class="field"><label>CALA Mobile Number</label>
+            <input id="f_low3a_mobile" value="${existing?.calaMobile||''}" placeholder="10-digit number"></div>
+        </div>
+        <div class="mt-4">
+          <button class="btn btn-primary" id="save_low3a_btn">💾 Save 3a Details</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('save_low3a_btn').addEventListener('click', function() {
+    const date   = document.getElementById('f_low3a_date').value;
+    const post   = document.getElementById('f_low3a_post').value.trim();
+    const name   = document.getElementById('f_low3a_name').value.trim();
+    const mobile = document.getElementById('f_low3a_mobile').value.trim();
+    if (!date || !post || !name) { showToast('Date, CALA Post and Name are required.', 'error'); return; }
+    if (existing) {
+      existing.notifDate = date; existing.calaPost = post;
+      existing.calaName = name; existing.calaMobile = mobile;
+    } else {
+      DB.process3a.push({ id: newId(), projectId: laState.projectId, villageId: laState.villageId,
+        type: 'lower3a', notifDate: date, calaPost: post, calaName: name, calaMobile: mobile });
+    }
+    saveDB(); showToast('3a Notification saved! Now enter 3A Details.', 'success'); renderLATabs();
+  });
+  if (isAdmin && existing && document.getElementById('del_low3a_btn')) {
+    document.getElementById('del_low3a_btn').addEventListener('click', function() {
+      confirmModal('Delete <strong>3a entry</strong>? This will also delete all downstream entries (3A, JM, 3D, 3G) for this village.', function() {
+        deleteVillageProcess(laState.villageId, laState.projectId);
+        showToast('3a entry and all downstream data deleted.', 'info'); renderLATabs();
+      });
+    });
+  }
+}
+
+// Helper: delete all LA process data for a village+project from a given stage onwards
+function deleteFromStage(stage, vid, pid) {
+  if (stage <= 1) { // delete 3a lower
+    DB.process3a = DB.process3a.filter(x => !(x.villageId===vid && x.projectId===pid && x.type==='lower3a'));
+  }
+  if (stage <= 2) { // delete 3A upper + guts
+    const recs = DB.process3a.filter(x => x.villageId===vid && x.projectId===pid && x.type==='upper3A');
+    recs.forEach(r => { DB.process3aGuts = DB.process3aGuts.filter(g => g.process3aId !== r.id); });
+    DB.process3a = DB.process3a.filter(x => !(x.villageId===vid && x.projectId===pid && x.type==='upper3A'));
+  }
+  if (stage <= 3) { // delete JM + guts
+    const recs = DB.processJM.filter(x => x.villageId===vid && x.projectId===pid);
+    recs.forEach(r => { DB.processJMGuts = DB.processJMGuts.filter(g => g.processJMId !== r.id); });
+    DB.processJM = DB.processJM.filter(x => !(x.villageId===vid && x.projectId===pid));
+  }
+  if (stage <= 4) { // delete 3D + guts
+    const recs = DB.process3D.filter(x => x.villageId===vid && x.projectId===pid);
+    recs.forEach(r => { DB.process3DGuts = DB.process3DGuts.filter(g => g.process3DId !== r.id); });
+    DB.process3D = DB.process3D.filter(x => !(x.villageId===vid && x.projectId===pid));
+  }
+  if (stage <= 5) { // delete 3G + guts
+    const recs = DB.process3G.filter(x => x.villageId===vid && x.projectId===pid);
+    recs.forEach(r => { DB.process3GGuts = DB.process3GGuts.filter(g => g.process3GId !== r.id); });
+    DB.process3G = DB.process3G.filter(x => !(x.villageId===vid && x.projectId===pid));
+  }
+  saveDB();
+}
+
+function deleteVillageProcess(vid, pid) { deleteFromStage(1, vid, pid); }
+
+// ─────────────────────────────────────────────────────
+// STAGE 2: 3A (UPPERCASE) — Gut Number wise Area Notification
+// ─────────────────────────────────────────────────────
+function renderTab_upper3A(hasLower3a) {
+  if (!hasLower3a) {
+    document.getElementById('la-tab-content').innerHTML = `
+      <div class="alert alert-warning" style="font-size:15px;padding:20px;text-align:center">
+        🔒 <strong>Complete This Process First:</strong> Save 3a Notification before entering 3A Details.
+      </div>`;
+    return;
+  }
+  const existing = DB.process3a.find(x =>
+    x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
+  const guts = existing ? DB.process3aGuts.filter(g => g.process3aId === existing.id) : [];
+  window._gutCount_3A = guts.length;
+  const isAdmin = currentUser.role === 'admin';
+
+  document.getElementById('la-tab-content').innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Stage 2: 3A — Gut Number wise Area Notification</h3>
+        <div class="flex gap-2 items-center">
+          <span class="badge ${existing ? 'badge-complete' : 'badge-pending'}">${existing ? '✓ Saved' : 'Pending'}</span>
+          ${isAdmin && existing ? `<button class="btn btn-danger btn-sm" id="del_up3A_btn">🗑 Delete</button>` : ''}
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="alert alert-info" style="margin-bottom:18px">
+          ℹ <strong>3A</strong> (Section 3A) records the specific gut numbers and their areas proposed for acquisition.
+        </div>
+        <div class="field" style="max-width:300px">
+          <label class="required">3A Notification Date</label>
+          <input type="date" id="f_up3A_date" value="${existing?.notifDate||''}">
+        </div>
+        <div class="divider"></div>
+        <div class="flex justify-between items-center mb-4">
+          <h4>Gut Number Details</h4>
+          <button class="btn btn-secondary btn-sm" id="addGut3A_btn">+ Add Gut</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Gut Number</th><th>Area (Ha)</th><th>Land Type</th><th></th></tr></thead>
+            <tbody id="gutBody_3A">
+              ${guts.length === 0
+                ? `<tr id="noGuts_3A"><td colspan="4" style="text-align:center;color:var(--text-dim);padding:20px">Click "+ Add Gut" to add gut numbers.</td></tr>`
+                : guts.map((g, i) => gutRow3A(i, g)).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4">
+          <button class="btn btn-primary" id="save_up3A_btn">💾 Save 3A Details</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('addGut3A_btn').addEventListener('click', function() {
+    document.getElementById('noGuts_3A')?.remove();
+    const i = window._gutCount_3A++;
+    document.getElementById('gutBody_3A').insertAdjacentHTML('beforeend', gutRow3A(i, {}));
+  });
+
+  document.getElementById('save_up3A_btn').addEventListener('click', function() {
+    const date = document.getElementById('f_up3A_date').value;
+    if (!date) { showToast('3A Notification Date is required.', 'error'); return; }
+    const guts = collectGutRows('g3A');
+    if (!guts.length) { showToast('Add at least one gut number.', 'error'); return; }
+    if (existing) {
+      existing.notifDate = date;
+      DB.process3aGuts = DB.process3aGuts.filter(g => g.process3aId !== existing.id);
+      guts.forEach(g => DB.process3aGuts.push({ id: newId(), process3aId: existing.id, gutNumber: g.num, area: g.area, landType: g.landType || 'Private Land' }));
+    } else {
+      const id = newId();
+      DB.process3a.push({ id, projectId: laState.projectId, villageId: laState.villageId,
+        type: 'upper3A', notifDate: date });
+      guts.forEach(g => DB.process3aGuts.push({ id: newId(), process3aId: id, gutNumber: g.num, area: g.area, landType: g.landType || 'Private Land' }));
+    }
+    saveDB(); showToast('3A Details saved! Now proceed to JM.', 'success'); renderLATabs();
+  });
+  if (isAdmin && existing && document.getElementById('del_up3A_btn')) {
+    document.getElementById('del_up3A_btn').addEventListener('click', function() {
+      confirmModal('Delete <strong>3A entry</strong>? This will also delete JM, 3D and 3G data for this village.', function() {
+        deleteFromStage(2, laState.villageId, laState.projectId);
+        showToast('3A and downstream data deleted.', 'info'); renderLATabs();
+      });
+    });
+  }
+}
+
+function gutRow3A(i, g) {
+  const isGovt = g.landType === 'Government Land';
+  return `<tr id="row_g3A_${i}">
+    <td class="mono">${i+1}</td>
+    <td><input class="inlineInput" id="g3A_num_${i}" value="${g.gutNumber||''}" placeholder="Gut No." style="width:110px"></td>
+    <td><input type="number" class="inlineInput" id="g3A_area_${i}" value="${g.area||''}" placeholder="0.00" style="width:90px"></td>
+    <td>
+      <select class="inlineInput" id="g3A_type_${i}" style="min-width:160px;padding:6px 10px">
+        <option value="Private Land" ${!isGovt ? 'selected' : ''}>🏠 Private Land</option>
+        <option value="Government Land" ${isGovt ? 'selected' : ''}>🏛 Government Land</option>
+      </select>
+    </td>
+    <td><button class="btn btn-danger btn-sm" onclick="document.getElementById('row_g3A_${i}').remove()">✕</button></td>
+  </tr>`;
+}
+
+function collectGutRows(prefix) {
+  const results = [];
+  let i = 0;
+  while (true) {
+    const numEl  = document.getElementById(prefix + '_num_' + i);
+    const areaEl = document.getElementById(prefix + '_area_' + i);
+    const typeEl = document.getElementById(prefix + '_type_' + i);
+    if (!numEl && i > 50) break;
+    if (numEl && numEl.value.trim()) {
+      results.push({
+        num: numEl.value.trim(),
+        area: areaEl ? areaEl.value : '',
+        landType: typeEl ? typeEl.value : 'Private Land'
+      });
+    }
+    i++;
+  }
+  return results;
+}
+
+// ─────────────────────────────────────────────────────
+// STAGE 3: JM — Joint Measurement
+// ─────────────────────────────────────────────────────
+function renderTab_JM(hasUpper3A) {
+  if (!hasUpper3A) {
+    document.getElementById('la-tab-content').innerHTML = `
+      <div class="alert alert-warning" style="font-size:15px;padding:20px;text-align:center">
+        🔒 <strong>Complete This Process First:</strong> Save 3A Details before entering JM Process.
+      </div>`;
+    return;
+  }
+  const existing = DB.processJM.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
+  const rec3A = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
+  const guts3A = DB.process3aGuts.filter(g => g.process3aId === rec3A?.id);
+  const jmGuts = existing ? DB.processJMGuts.filter(g => g.processJMId === existing.id) : [];
+  const isAdmin = currentUser.role === 'admin';
+
+  // Build gut rows: 3A guts + any extra JM guts not in 3A
+  const extraJmGuts = jmGuts.filter(j => !guts3A.find(g => g.gutNumber === j.gutNumber));
+
+  document.getElementById('la-tab-content').innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Stage 3: JM — Joint Measurement</h3>
+        <div class="flex gap-2 items-center">
+          <span class="badge ${existing ? 'badge-complete' : 'badge-pending'}">${existing ? '✓ Saved' : 'Pending'}</span>
+          ${isAdmin && existing ? `<button class="btn btn-danger btn-sm" id="del_jm_btn">🗑 Delete</button>` : ''}
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="form-grid cols-2">
+          <div class="field"><label class="required">JM Date</label>
+            <input type="date" id="fjm_date" value="${existing?.jmDate||''}"></div>
+          <div class="field"><label>JM Sheet Received Date</label>
+            <input type="date" id="fjm_sheet" value="${existing?.sheetDate||''}"></div>
+        </div>
+        <div class="divider"></div>
+        <h4 class="mb-4">Modified Area After JM (per Gut)</h4>
+        <div class="alert alert-info" style="margin-bottom:12px;font-size:12px">
+          ℹ If JM area is <strong>greater than 3A area</strong> for a gut, it will be flagged as <strong style="color:#f59e0b">Additional Area</strong> and auto-created as a separate <em>Village (Add)</em> process after saving.
+          You can also <strong>add new gut numbers</strong> not in 3A — these will also go to Additional Area.
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Gut Number</th>
+              <th>3A Area (Ha)</th>
+              <th>Land Type</th>
+              <th>Modified Area after JM (Ha)</th>
+              <th>Status</th>
+            </tr></thead>
+            <tbody id="jm-gut-tbody">
+              ${guts3A.map((g, i) => {
+                const jg = jmGuts.find(j => j.gutNumber === g.gutNumber);
+                const isGovt = g.landType === 'Government Land';
+                const modVal = jg?.modArea || '';
+                const isAddl = modVal && parseFloat(modVal) > parseFloat(g.area);
+                return `<tr id="jmrow_${i}" data-gut="${g.gutNumber}" data-area3a="${g.area}" data-isnew="0">
+                  <td class="mono">${g.gutNumber}</td>
+                  <td class="mono">${g.area}</td>
+                  <td><span class="badge" style="${isGovt ? 'background:rgba(148,163,184,0.15);color:#94a3b8' : 'background:rgba(34,197,94,0.15);color:#4ade80'}">${isGovt ? '🏛 Govt' : '🏠 Private'}</span></td>
+                  <td><input type="number" class="inlineInput jm-mod-input" id="jm_mod_${i}"
+                    value="${modVal}" placeholder="0.00" style="width:130px"
+                    oninput="highlightJMRow(this, ${parseFloat(g.area)||0})"></td>
+                  <td id="jmstatus_${i}">${isAddl ? '<span style="color:#f59e0b;font-weight:600;font-size:11px">⚠ Additional Area</span>' : '<span style="color:#888;font-size:11px">Normal</span>'}</td>
+                </tr>`;
+              }).join('')}
+              ${extraJmGuts.map((jg, ei) => {
+                const idx = 'e' + ei;
+                return `<tr id="jmrow_${idx}" data-gut="${jg.gutNumber}" data-area3a="0" data-isnew="1" style="background:rgba(245,158,11,0.08)">
+                  <td><input class="inlineInput" id="jm_newgut_${idx}" value="${jg.gutNumber}" placeholder="Gut No." style="width:90px"></td>
+                  <td class="mono" style="color:#888">—</td>
+                  <td><span class="badge" style="background:rgba(245,158,11,0.15);color:#f59e0b">➕ New</span></td>
+                  <td><input type="number" class="inlineInput jm-mod-input" id="jm_mod_${idx}"
+                    value="${jg.modArea||''}" placeholder="0.00" style="width:130px"></td>
+                  <td><span style="color:#f59e0b;font-weight:600;font-size:11px">⚠ Additional Area</span></td>
+                  <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">✕</button></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex gap-2">
+          <button class="btn btn-secondary btn-sm" id="jm-add-gut-btn">➕ Add New Gut Number</button>
+        </div>
+        <div class="mt-4">
+          <button class="btn btn-primary" id="saveJM_btn">💾 Save JM Details</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Highlight existing rows that already have additional area
+  guts3A.forEach((g, i) => {
+    const inp = document.getElementById('jm_mod_' + i);
+    if (inp && inp.value) highlightJMRow(inp, parseFloat(g.area)||0);
+  });
+
+  // Add new gut row button
+  let newGutCount = 0;
+  document.getElementById('jm-add-gut-btn').addEventListener('click', function() {
+    const idx = 'n' + (newGutCount++);
+    const tbody = document.getElementById('jm-gut-tbody');
+    const tr = document.createElement('tr');
+    tr.id = 'jmrow_' + idx;
+    tr.setAttribute('data-gut', '');
+    tr.setAttribute('data-area3a', '0');
+    tr.setAttribute('data-isnew', '1');
+    tr.style.background = 'rgba(245,158,11,0.08)';
+    tr.innerHTML =
+      '<td><input class="inlineInput" id="jm_newgut_' + idx + '" placeholder="Gut No." style="width:90px"></td>'
+      + '<td class="mono" style="color:#888">—</td>'
+      + '<td><span class="badge" style="background:rgba(245,158,11,0.15);color:#f59e0b">➕ New</span></td>'
+      + '<td><input type="number" class="inlineInput" id="jm_mod_' + idx + '" placeholder="0.00" style="width:130px"></td>'
+      + '<td><span style="color:#f59e0b;font-weight:600;font-size:11px">⚠ Additional Area</span></td>'
+      + '<td><button class="btn btn-danger btn-sm" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('saveJM_btn').addEventListener('click', function() {
+    const jmDate = document.getElementById('fjm_date').value;
+    if (!jmDate) { showToast('JM Date is required.', 'error'); return; }
+    const sheetDate = document.getElementById('fjm_sheet').value;
+
+    // Collect all gut rows
+    const allRows = document.querySelectorAll('#jm-gut-tbody tr');
+    const normalGuts = [];   // guts from 3A (modArea <= 3A area)
+    const addlGuts   = [];   // guts with modArea > 3A area OR new guts
+
+    allRows.forEach(function(row) {
+      const isNew = row.getAttribute('data-isnew') === '1';
+      const area3a = parseFloat(row.getAttribute('data-area3a')) || 0;
+      let gutNum, modArea;
+
+      if (isNew) {
+        const gutEl = row.querySelector('input[id^="jm_newgut_"]');
+        const areaEl = row.querySelector('input[type="number"]');
+        gutNum  = gutEl ? gutEl.value.trim() : '';
+        modArea = areaEl ? areaEl.value : '';
+        if (!gutNum) return; // skip empty rows
+        addlGuts.push({ gutNumber: gutNum, modArea: modArea, isNew: true });
+      } else {
+        gutNum  = row.getAttribute('data-gut');
+        const areaEl = row.querySelector('input[type="number"]');
+        modArea = areaEl ? areaEl.value : '';
+        const modVal = parseFloat(modArea) || 0;
+
+        if (modVal > area3a && area3a > 0) {
+          // Split: normal part goes to regular JM, extra goes to Additional Area
+          normalGuts.push({ gutNumber: gutNum, modArea: String(area3a) });
+          addlGuts.push({ gutNumber: gutNum, modArea: String((modVal - area3a).toFixed(4)), isNew: false, extraOnly: true });
+        } else {
+          normalGuts.push({ gutNumber: gutNum, modArea: modArea });
+        }
+      }
+    });
+
+    // Save normal JM record
+    if (existing) {
+      existing.jmDate = jmDate; existing.sheetDate = sheetDate;
+      DB.processJMGuts = DB.processJMGuts.filter(g => g.processJMId !== existing.id);
+      normalGuts.forEach(g => DB.processJMGuts.push({ id: newId(), processJMId: existing.id, gutNumber: g.gutNumber, modArea: g.modArea }));
+    } else {
+      const id = newId();
+      DB.processJM.push({ id, projectId: laState.projectId, villageId: laState.villageId, jmDate, sheetDate });
+      normalGuts.forEach(g => DB.processJMGuts.push({ id: newId(), processJMId: id, gutNumber: g.gutNumber, modArea: g.modArea }));
+    }
+
+    // Handle Additional Area — create/update "Village (Add)" village and its 3a, 3A, JM records
+    if (addlGuts.length > 0) {
+      const baseVillage = DB.villages.find(v => v.id === laState.villageId);
+      const addlVilName = baseVillage.name + ' (Add)';
+
+      // Find or create Add village
+      let addlVil = DB.villages.find(v => v.projectId === laState.projectId && v.name === addlVilName);
+      if (!addlVil) {
+        const addlVilId = newId();
+        DB.villages.push({ id: addlVilId, projectId: laState.projectId, name: addlVilName, taluka: baseVillage.taluka + ' (Add)', isAddl: true });
+        addlVil = DB.villages.find(v => v.id === addlVilId);
+      }
+
+      // Copy 3a record to Add village if not exists
+      const base3a = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'lower3a');
+      if (base3a && !DB.process3a.find(x => x.villageId === addlVil.id && x.projectId === laState.projectId && x.type === 'lower3a')) {
+        DB.process3a.push({ id: newId(), projectId: laState.projectId, villageId: addlVil.id,
+          type: 'lower3a', notifDate: base3a.notifDate, calaPost: base3a.calaPost, calaName: base3a.calaName, calaMobile: base3a.calaMobile });
+      }
+
+      // Create/update 3A record for Add village with addl guts
+      let addl3A = DB.process3a.find(x => x.villageId === addlVil.id && x.projectId === laState.projectId && x.type === 'upper3A');
+      if (!addl3A) {
+        const addl3AId = newId();
+        DB.process3a.push({ id: addl3AId, projectId: laState.projectId, villageId: addlVil.id, type: 'upper3A', notifDate: rec3A?.notifDate || jmDate });
+        addl3A = DB.process3a.find(x => x.id === addl3AId);
+      }
+      // Replace guts
+      DB.process3aGuts = DB.process3aGuts.filter(g => g.process3aId !== addl3A.id);
+      addlGuts.forEach(function(g) {
+        // Get land type from original 3A guts
+        const orig3Agut = guts3A.find(x => x.gutNumber === g.gutNumber);
+        const landType = orig3Agut ? orig3Agut.landType : 'Private Land';
+        DB.process3aGuts.push({ id: newId(), process3aId: addl3A.id, gutNumber: g.gutNumber, area: g.modArea, landType: landType });
+      });
+
+      // Create/update JM record for Add village
+      let addlJM = DB.processJM.find(x => x.villageId === addlVil.id && x.projectId === laState.projectId);
+      if (!addlJM) {
+        const addlJMId = newId();
+        DB.processJM.push({ id: addlJMId, projectId: laState.projectId, villageId: addlVil.id, jmDate, sheetDate });
+        addlJM = DB.processJM.find(x => x.id === addlJMId);
+      } else {
+        addlJM.jmDate = jmDate; addlJM.sheetDate = sheetDate;
+      }
+      DB.processJMGuts = DB.processJMGuts.filter(g => g.processJMId !== addlJM.id);
+      addlGuts.forEach(function(g) {
+        DB.processJMGuts.push({ id: newId(), processJMId: addlJM.id, gutNumber: g.gutNumber, modArea: g.modArea });
+      });
+
+      saveDB();
+      showToast('✅ JM saved! Additional Area auto-created for ' + addlVilName + '.', 'success');
+    } else {
+      // Clean up any existing Add village for this village if no more addl guts
+      const baseVillage = DB.villages.find(v => v.id === laState.villageId);
+      const addlVilName = baseVillage.name + ' (Add)';
+      const addlVil = DB.villages.find(v => v.projectId === laState.projectId && v.name === addlVilName);
+      if (addlVil) {
+        DB.processJM = DB.processJM.filter(x => x.villageId !== addlVil.id);
+        DB.process3a = DB.process3a.filter(x => x.villageId !== addlVil.id);
+        DB.villages  = DB.villages.filter(v => v.id !== addlVil.id);
+      }
+      saveDB();
+      showToast('JM Details saved! Now proceed to 3D.', 'success');
+    }
+    renderLATabs();
+  });
+
+  if (isAdmin && existing && document.getElementById('del_jm_btn')) {
+    document.getElementById('del_jm_btn').addEventListener('click', function() {
+      confirmModal('Delete <strong>JM entry</strong>? This will also delete 3D and 3G data for this village.', function() {
+        // Also remove Add village
+        const baseVillage = DB.villages.find(v => v.id === laState.villageId);
+        if (baseVillage) {
+          const addlVil = DB.villages.find(v => v.projectId === laState.projectId && v.name === baseVillage.name + ' (Add)');
+          if (addlVil) {
+            DB.processJM = DB.processJM.filter(x => x.villageId !== addlVil.id);
+            DB.process3a = DB.process3a.filter(x => x.villageId !== addlVil.id);
+            DB.villages  = DB.villages.filter(v => v.id !== addlVil.id);
+          }
+        }
+        deleteFromStage(3, laState.villageId, laState.projectId);
+        showToast('JM and downstream data deleted.', 'info'); renderLATabs();
+      });
+    });
+  }
+}
+
+// Highlight JM row if modArea > 3A area
+function highlightJMRow(input, area3a) {
+  const row = input.closest('tr');
+  if (!row) return;
+  const statusCell = row.querySelector('td:last-child') || row.cells[row.cells.length-1];
+  const modVal = parseFloat(input.value) || 0;
+  const isAddl = area3a > 0 && modVal > area3a;
+  input.style.borderColor = isAddl ? '#f59e0b' : '';
+  input.style.background   = isAddl ? 'rgba(245,158,11,0.08)' : '';
+  // Update status cell (5th td, index 4)
+  const cells = row.querySelectorAll('td');
+  if (cells[4]) {
+    cells[4].innerHTML = isAddl
+      ? '<span style="color:#f59e0b;font-weight:600;font-size:11px">⚠ Additional Area</span>'
+      : '<span style="color:#888;font-size:11px">Normal</span>';
+  }
+}
+
+
+
+// ─────────────────────────────────────────────────────
+// STAGE 4: 3D — Declaration / Award
+// ─────────────────────────────────────────────────────
+function renderTab_3D(hasJM) {
+  if (!hasJM) {
+    document.getElementById('la-tab-content').innerHTML = `
+      <div class="alert alert-warning" style="font-size:15px;padding:20px;text-align:center">
+        🔒 <strong>Complete This Process First:</strong> Save JM Process before entering 3D Declaration.
+      </div>`;
+    return;
+  }
+  const existing = DB.process3D.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
+  const jmRec  = DB.processJM.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
+  const jmGuts = DB.processJMGuts.filter(g => g.processJMId === jmRec?.id);
+  const d3Guts = existing ? DB.process3DGuts.filter(g => g.process3DId === existing.id) : [];
+  const rec3A  = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
+  const guts3A = DB.process3aGuts.filter(g => g.process3aId === rec3A?.id);
+  const isAdmin = currentUser.role === 'admin';
+
+  document.getElementById('la-tab-content').innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Stage 4: 3D — Declaration / Award</h3>
+        <div class="flex gap-2 items-center">
+          <span class="badge ${existing ? 'badge-complete' : 'badge-pending'}">${existing ? '✓ Saved' : 'Pending'}</span>
+          ${isAdmin && existing ? `<button class="btn btn-danger btn-sm" id="del_3d_btn">🗑 Delete</button>` : ''}
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="field" style="max-width:300px">
+          <label class="required">3D Notification Date</label>
+          <input type="date" id="f3d_date" value="${existing?.notifDate||''}">
+        </div>
+        <div class="divider"></div>
+        <h4 class="mb-4">Gut-wise Beneficiary Details</h4>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Gut Number</th><th>JM Area (Ha)</th><th>Land Type</th><th>Beneficiary Name</th></tr></thead>
+            <tbody>
+              ${jmGuts.map((g, i) => {
+                const dg = d3Guts.find(d => d.gutNumber === g.gutNumber);
+                const g3A = guts3A ? guts3A.find(x => x.gutNumber === g.gutNumber) : null;
+                const isGovt = g3A && g3A.landType === 'Government Land';
+                return `<tr>
+                  <td class="mono">${g.gutNumber}</td>
+                  <td class="mono">${g.modArea}</td>
+                  <td><span class="badge" style="${isGovt ? 'background:rgba(148,163,184,0.15);color:#94a3b8' : 'background:rgba(34,197,94,0.15);color:#4ade80'}">${isGovt ? '🏛 Govt' : '🏠 Private'}</span></td>
+                  <td><input class="inlineInput" id="d3_ben_${i}" data-gut="${g.gutNumber}" data-area="${g.modArea}" data-landtype="${isGovt ? 'Government Land' : 'Private Land'}"
+                    value="${dg?.beneficiary||''}" placeholder="${isGovt ? 'Govt. land — no beneficiary needed' : 'Enter beneficiary name'}" style="min-width:220px${isGovt ? ';opacity:0.5' : ''}"></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4">
+          <button class="btn btn-primary" id="save3D_btn">💾 Save 3D Details</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('save3D_btn').addEventListener('click', function() {
+    const date = document.getElementById('f3d_date').value;
+    if (!date) { showToast('3D Notification Date is required.', 'error'); return; }
+    const guts = jmGuts.map((g, i) => {
+      const el = document.getElementById('d3_ben_' + i);
+      const lt = el ? el.getAttribute('data-landtype') : 'Private Land';
+      return { gutNumber: g.gutNumber, area: g.modArea, beneficiary: el ? el.value : '', landType: lt || 'Private Land' };
+    });
+    if (existing) {
+      existing.notifDate = date;
+      DB.process3DGuts = DB.process3DGuts.filter(g => g.process3DId !== existing.id);
+      guts.forEach(g => DB.process3DGuts.push({ id: newId(), process3DId: existing.id, ...g }));
+    } else {
+      const id = newId();
+      DB.process3D.push({ id, projectId: laState.projectId, villageId: laState.villageId, notifDate: date });
+      guts.forEach(g => DB.process3DGuts.push({ id: newId(), process3DId: id, ...g }));
+    }
+    saveDB(); showToast('3D Declaration saved! Now proceed to 3G.', 'success'); renderLATabs();
+  });
+  if (isAdmin && existing && document.getElementById('del_3d_btn')) {
+    document.getElementById('del_3d_btn').addEventListener('click', function() {
+      confirmModal('Delete <strong>3D entry</strong>? This will also delete 3G data for this village.', function() {
+        deleteFromStage(4, laState.villageId, laState.projectId);
+        showToast('3D and 3G data deleted.', 'info'); renderLATabs();
+      });
+    });
+  }
+}
+
+// ─────────────────────────────────────────────────────
+// STAGE 5: 3G — Compensation (Private Land only)
+// ─────────────────────────────────────────────────────
+function renderTab_3G(has3D) {
+  if (!has3D) {
+    document.getElementById('la-tab-content').innerHTML = `
+      <div class="alert alert-warning" style="font-size:15px;padding:20px;text-align:center">
+        🔒 <strong>Complete This Process First:</strong> Save 3D Declaration before entering 3G Compensation.
+      </div>`;
+    return;
+  }
+  const existing = DB.process3G.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
+  const d3Rec  = DB.process3D.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
+  const allD3Guts = DB.process3DGuts.filter(g => g.process3DId === d3Rec?.id);
+
+  // Get land type from 3A guts for reference
+  const rec3A = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
+  const guts3A = DB.process3aGuts.filter(g => g.process3aId === rec3A?.id);
+
+  // Separate private vs govt guts
+  const privateGuts = allD3Guts.filter(g => {
+    const g3A = guts3A.find(x => x.gutNumber === g.gutNumber);
+    return !g3A || g3A.landType !== 'Government Land';
+  });
+  const govtGuts = allD3Guts.filter(g => {
+    const g3A = guts3A.find(x => x.gutNumber === g.gutNumber);
+    return g3A && g3A.landType === 'Government Land';
+  });
+
+  const g3Guts = existing ? DB.process3GGuts.filter(g => g.process3GId === existing.id) : [];
+  const allGovt = govtGuts.length === allD3Guts.length && allD3Guts.length > 0;
+
+  const isAdmin3G = currentUser.role === 'admin';
+  document.getElementById('la-tab-content').innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Stage 5: 3G — Compensation Payment</h3>
+        <div class="flex gap-2 items-center">
+          ${allGovt
+            ? '<span class="badge badge-pending">Not Applicable</span>'
+            : `<span class="badge ${existing ? 'badge-complete' : 'badge-pending'}">${existing ? '✓ Saved' : 'Pending'}</span>`}
+          ${isAdmin3G && existing ? `<button class="btn btn-danger btn-sm" id="del_3g_btn">🗑 Delete</button>` : ''}
+        </div>
+      </div>
+      <div class="panel-body">
+
+        ${govtGuts.length > 0 ? `
+        <div class="alert alert-info" style="margin-bottom:16px">
+          🏛 <strong>${govtGuts.length} Government Land gut(s)</strong> — 
+          ${govtGuts.map(g => `<span class="chip">${g.gutNumber}</span>`).join('')}
+          — are <strong>excluded from 3G compensation</strong> (Government to Government transfer).
+        </div>` : ''}
+
+        ${allGovt ? `
+        <div style="text-align:center;padding:40px 20px;border:2px dashed var(--border);border-radius:10px">
+          <div style="font-size:40px;margin-bottom:12px">🏛</div>
+          <h3 style="color:var(--text);margin-bottom:8px">3G Not Applicable</h3>
+          <p style="color:var(--text-dim)">All guts in this village are <strong>Government Land</strong>.<br>
+          No compensation is required as this is a Government to Government transfer.<br>
+          The LA process for this village is complete at <strong>Stage 4 (3D)</strong>.</p>
+        </div>
+        ` : `
+        <div class="field" style="max-width:300px">
+          <label class="required">3G Notification Date</label>
+          <input type="date" id="f3g_date" value="${existing?.notifDate||''}">
+        </div>
+        <div class="divider"></div>
+        <h4 class="mb-4">Compensation per Gut / Beneficiary <span style="font-size:12px;color:var(--text-dim);font-weight:400">(Private Land only)</span></h4>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Gut Number</th><th>Area (Ha)</th><th>Land Type</th><th>Beneficiary</th><th>Compensation (₹)</th></tr></thead>
+            <tbody>
+              ${privateGuts.map((g, i) => {
+                const gg = g3Guts.find(x => x.gutNumber === g.gutNumber);
+                return `<tr>
+                  <td class="mono">${g.gutNumber}</td>
+                  <td class="mono">${g.area}</td>
+                  <td><span class="badge b3a" style="background:rgba(34,197,94,0.15);color:#4ade80">🏠 Private</span></td>
+                  <td>${g.beneficiary || '—'}</td>
+                  <td><input type="number" class="inlineInput" id="g3_comp_${i}"
+                    data-gut="${g.gutNumber}" data-ben="${g.beneficiary||''}"
+                    value="${gg?.compensation||''}" placeholder="0.00" style="width:150px"></td>
+                </tr>`;
+              }).join('')}
+              ${govtGuts.map(g => `<tr style="opacity:0.45">
+                <td class="mono">${g.gutNumber}</td>
+                <td class="mono">${g.area}</td>
+                <td><span class="badge" style="background:rgba(148,163,184,0.15);color:#94a3b8">🏛 Govt</span></td>
+                <td colspan="2" style="color:var(--text-dim);font-style:italic">Not applicable — Government Land</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4">
+          <button class="btn btn-primary" id="save3G_btn">💾 Save 3G Compensation</button>
+        </div>
+        `}
+      </div>
+    </div>
+  `;
+
+  if (!allGovt) {
+    document.getElementById('save3G_btn').addEventListener('click', function() {
+      const date = document.getElementById('f3g_date').value;
+      if (!date) { showToast('3G Notification Date is required.', 'error'); return; }
+      const guts = privateGuts.map((g, i) => {
+        const el = document.getElementById('g3_comp_' + i);
+        return { gutNumber: g.gutNumber, beneficiary: g.beneficiary, compensation: el ? el.value : '' };
+      });
+      if (existing) {
+        existing.notifDate = date;
+        DB.process3GGuts = DB.process3GGuts.filter(g => g.process3GId !== existing.id);
+        guts.forEach(g => DB.process3GGuts.push({ id: newId(), process3GId: existing.id, ...g }));
+      } else {
+        const id = newId();
+        DB.process3G.push({ id, projectId: laState.projectId, villageId: laState.villageId, notifDate: date });
+        guts.forEach(g => DB.process3GGuts.push({ id: newId(), process3GId: id, ...g }));
+      }
+      saveDB(); showToast('3G Compensation saved! Process complete ✓', 'success'); renderLATabs();
+    });
+  }
+  if (isAdmin3G && existing && document.getElementById('del_3g_btn')) {
+    document.getElementById('del_3g_btn').addEventListener('click', function() {
+      confirmModal('Delete <strong>3G compensation entry</strong> for this village?', function() {
+        deleteFromStage(5, laState.villageId, laState.projectId);
+        showToast('3G data deleted.', 'info'); renderLATabs();
+      });
+    });
+  }
+}
+
+// ── Additional Area ──
+function renderTab_Addl() {
+  document.getElementById('la-tab-content').innerHTML = `
+    <div class="alert alert-info">ℹ <strong>Additional Area Process:</strong> For land discovered during JM that had no prior 3a notification. Workflow: 3a → 3A → 3D (JM skipped) → 3G.</div>
+    <div class="panel">
+      <div class="panel-header"><h3>Additional Area — Entry</h3></div>
+      <div class="panel-body">
+        <div class="field" style="max-width:300px"><label class="required">3a/3A Notification Date</label><input type="date" id="addl-date"></div>
+        <div class="divider"></div>
+        <div class="flex justify-between items-center mb-4">
+          <h4>Additional Gut Numbers</h4>
+          <button class="btn btn-secondary btn-sm" id="addlAddBtn">+ Add Gut</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Gut Number</th><th>Area (Ha)</th><th>Beneficiary Name</th><th>Compensation (₹)</th><th></th></tr></thead>
+            <tbody id="addl-guts-body">
+              <tr id="no-addl-guts"><td colspan="6" style="text-align:center;color:var(--text-dim);padding:20px">Click "+ Add Gut" to add additional area records.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4">
+          <button class="btn btn-primary" id="saveAddlBtn">💾 Save Additional Area</button>
+        </div>
+      </div>
+    </div>
+  `;
+  window._addlGutCount = 0;
+
+  document.getElementById('addlAddBtn').addEventListener('click', function() {
+    document.getElementById('no-addl-guts')?.remove();
+    const i = window._addlGutCount++;
+    document.getElementById('addl-guts-body').insertAdjacentHTML('beforeend',
+      `<tr id="addl-gut-${i}">
+        <td class="mono">${i+1}</td>
+        <td><input class="inlineInput" id="addl-num-${i}" placeholder="Gut No." style="width:100px"></td>
+        <td><input type="number" class="inlineInput" id="addl-area-${i}" placeholder="0.00" style="width:90px"></td>
+        <td><input class="inlineInput" id="addl-ben-${i}" placeholder="Beneficiary" style="min-width:180px"></td>
+        <td><input type="number" class="inlineInput" id="addl-comp-${i}" placeholder="0.00" style="width:120px"></td>
+        <td><button class="btn btn-danger btn-sm" onclick="document.getElementById('addl-gut-${i}').remove()">✕</button></td>
+      </tr>`);
+  });
+
+  document.getElementById('saveAddlBtn').addEventListener('click', function() {
+    const date = document.getElementById('addl-date').value;
+    if (!date) { showToast('Notification date required.', 'error'); return; }
+    const guts = [];
+    for (let i = 0; i < window._addlGutCount; i++) {
+      const num = document.getElementById('addl-num-' + i)?.value;
+      if (num) guts.push({
+        gutNumber: num,
+        area: document.getElementById('addl-area-' + i)?.value || '',
+        beneficiary: document.getElementById('addl-ben-' + i)?.value || '',
+        compensation: document.getElementById('addl-comp-' + i)?.value || ''
+      });
+    }
+    if (!guts.length) { showToast('Add at least one gut number.', 'error'); return; }
+
+    // 3a (lower) record
+    const a3id = newId();
+    DB.process3a.push({ id: a3id, projectId: laState.projectId, villageId: laState.villageId,
+      type: 'lower3a', notifDate: date, calaPost: 'Additional Area', calaName: '', calaMobile: '', isAdditional: true });
+
+    // 3A (upper) record — skip JM
+    const A3id = newId();
+    DB.process3a.push({ id: A3id, projectId: laState.projectId, villageId: laState.villageId,
+      type: 'upper3A', notifDate: date, isAdditional: true });
+    guts.forEach(g => DB.process3aGuts.push({ id: newId(), process3aId: A3id, gutNumber: g.gutNumber, area: g.area }));
+
+    // 3D
+    const d3id = newId();
+    DB.process3D.push({ id: d3id, projectId: laState.projectId, villageId: laState.villageId,
+      notifDate: date, isAdditional: true });
+    guts.forEach(g => DB.process3DGuts.push({ id: newId(), process3DId: d3id,
+      gutNumber: g.gutNumber, area: g.area, beneficiary: g.beneficiary }));
+
+    // 3G
+    const g3id = newId();
+    DB.process3G.push({ id: g3id, projectId: laState.projectId, villageId: laState.villageId,
+      notifDate: date, isAdditional: true });
+    guts.forEach(g => DB.process3GGuts.push({ id: newId(), process3GId: g3id,
+      gutNumber: g.gutNumber, beneficiary: g.beneficiary, compensation: g.compensation }));
+
+    saveDB(); showToast('Additional Area saved! (3a → 3A → 3D → 3G completed)', 'success'); renderLATabs();
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════
+// REPORTS
+// ═══════════════════════════════════════════════════════
+function renderReports() {
+  const myProjects = getMyProjects();
+
+  document.getElementById('page-content').innerHTML = `
+    <div class="panel mb-4">
+      <div class="panel-body">
+        <div class="flex gap-3 items-center flex-wrap">
+          <div class="field" style="margin:0;min-width:260px">
+            <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-dim);font-weight:500;">SELECT PROJECT</label>
+            <select id="rpt-project">
+              <option value="">All Projects</option>
+              ${myProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+            </select>
+          </div>
+          <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary" id="rpt-print-btn">🖨 Print Report</button>
+            <button class="btn btn-primary" id="rpt-pdf-btn" style="background:#1a6b3a;border-color:#1a6b3a">📄 Save as PDF</button>
+            <button class="btn btn-secondary" id="rpt-csv-btn">⬇ Export CSV</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="report-content"></div>
+  `;
+
+  document.getElementById('rpt-project').addEventListener('change', renderReportContent);
+  document.getElementById('rpt-print-btn').addEventListener('click', printReport);
+  document.getElementById('rpt-pdf-btn').addEventListener('click', saveAsPDF);
+  document.getElementById('rpt-csv-btn').addEventListener('click', exportCSV);
+  renderReportContent();
+}
+
+function renderReportContent() {
+  var sel = document.getElementById('rpt-project');
+  var projectId = sel ? sel.value : '';
+  var pid = projectId ? parseInt(projectId) : null;
+  var projects = pid ? DB.projects.filter(function(p){ return p.id === pid; }) : getMyProjects();
+
+  if (!projects.length) {
+    document.getElementById('report-content').innerHTML = '<div class="empty-state"><div class="icon">📋</div><h3>No Data Available</h3><p>Create projects and enter LA process data to generate reports.</p></div>';
+    return;
+  }
+
+  var CSS = `<style>
+  .rpt { font-family: Arial, sans-serif; font-size: 11px; color: #111; }
+  .rpt-block { margin-bottom: 36px; border: 1.5px solid #4a7ab5; border-radius: 4px; overflow: hidden; page-break-inside: avoid; }
+  .rpt-header { background: #2a5298; color: #fff; padding: 8px 14px; font-size: 13px; font-weight: 700; letter-spacing: 0.3px; }
+  .rpt-outer { display: flex; }
+  /* LEFT: project info */
+  .rpt-left-panel { min-width: 160px; max-width: 170px; background: #f0f4f0; border-right: 2px solid #4a7ab5; padding: 10px 10px; font-size: 10px; line-height: 1.9; }
+  .rpt-left-panel .proj-name { font-weight: 700; font-size: 11px; color: #1a3a5c; margin-bottom: 4px; }
+  .rpt-status-box { background: #e8f0fb; border: 1px solid #4a7ab5; border-radius: 3px; padding: 5px 8px; text-align: center; margin-top: 8px; font-size: 10px; font-weight: 700; color: #2a5298; }
+  /* RIGHT: main content */
+  .rpt-right { flex: 1; overflow-x: auto; }
+  /* Summary grid — top row */
+  .rpt-summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr; border-bottom: 2px solid #4a7ab5; background: #dce6f7; }
+  .rpt-sg-cell { padding: 6px 10px; border-right: 1px solid #b0c4de; }
+  .rpt-sg-cell:last-child { border-right: none; }
+  .rpt-sg-label { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #2a5298; }
+  .rpt-sg-val { font-size: 13px; font-weight: 700; color: #111; }
+  .rpt-sg-sub { font-size: 9px; color: #555; margin-top: 1px; }
+  /* Stage table */
+  .rpt-tbl { width: 100%; border-collapse: collapse; }
+  .rpt-tbl th { background: #2a5298; color: #fff; padding: 6px 8px; text-align: center; font-size: 10px; border: 1px solid #3a6ab8; white-space: nowrap; }
+  .rpt-tbl td { padding: 5px 8px; text-align: center; font-size: 11px; border: 1px solid #ccc; vertical-align: middle; white-space: nowrap; }
+  .rpt-stage-lbl { background: #2a5298 !important; color: #fff !important; font-weight: 700; font-size: 13px; text-align: center !important; width: 42px; }
+  .rpt-row-lbl { background: #dce6f7; color: #2a5298; font-size: 9px; font-weight: 600; text-align: left !important; padding-left: 8px !important; white-space: nowrap; }
+  .rpt-date-row td { background: #f5f8ff; font-size: 10px; color: #444; }
+  .rpt-total-cell { background: #fffbea; font-weight: 700; color: #1a3a5c; }
+  .rpt-village-row td { background: #e8f0fb; font-weight: 600; color: #2a5298; font-size: 10px; }
+  .rpt-3g-done { background: #e8f5ec; color: #1a6b3a; font-weight: 700; }
+  .rpt-3g-pending { background: #fff8e1; color: #b45309; font-style: italic; }
+  .rpt-na { color: #bbb; }
+  @media print {
+    .sidebar, #topbar, .panel.mb-4 { display: none !important; }
+    body { background: white; }
+    .rpt { font-size: 10px; }
+  }
+  </style>`;
+
+  var html = CSS + '<div class="rpt">';
+
+  projects.forEach(function(p) {
+    var pVils = DB.villages.filter(function(v){ return v.projectId === p.id; });
+
+    // ── All records per stage ──
+    var all3ARecs = DB.process3a.filter(function(x){ return x.projectId===p.id && x.type==='upper3A'; });
+    var allJMRecs = DB.processJM.filter(function(x){ return x.projectId===p.id; });
+    var all3DRecs = DB.process3D.filter(function(x){ return x.projectId===p.id; });
+    var all3GRecs = DB.process3G.filter(function(x){ return x.projectId===p.id; });
+    var first3a   = DB.process3a.find(function(x){ return x.projectId===p.id && x.type==='lower3a'; });
+    // All 3a records grouped by CALA officer
+    var all3aRecs = DB.process3a.filter(function(x){ return x.projectId===p.id && x.type==='lower3a'; });
+    var calaGroups = {};
+    all3aRecs.forEach(function(r) {
+      var key = (r.calaPost||'—') + '||' + (r.calaName||'—');
+      if (!calaGroups[key]) calaGroups[key] = { calaPost: r.calaPost||'—', calaName: r.calaName||'—', dates: {}, vilCount: 0 };
+      calaGroups[key].vilCount++;
+      if (r.notifDate) calaGroups[key].dates[r.notifDate] = (calaGroups[key].dates[r.notifDate]||0) + 1;
+    });
+    var calaKeys = Object.keys(calaGroups);
+
+    // ── Sum totals ──
+    function sumGuts(recs, gutsDb, key, areaKey) {
+      var total = 0, count = 0;
+      recs.forEach(function(r){
+        var g = gutsDb.filter(function(g){ return g[key]===r.id; });
+        g.forEach(function(x){ total += parseFloat(x[areaKey])||0; count++; });
+      });
+      return { area: total, guts: count };
+    }
+    var s3A = sumGuts(all3ARecs, DB.process3aGuts, 'process3aId', 'area');
+    var sJM = sumGuts(allJMRecs, DB.processJMGuts, 'processJMId', 'modArea');
+    var s3D = sumGuts(all3DRecs, DB.process3DGuts, 'process3DId', 'area');
+    var s3Gcomp = 0;
+    all3GRecs.forEach(function(r){ DB.process3GGuts.filter(function(g){ return g.process3GId===r.id; }).forEach(function(g){ s3Gcomp += parseFloat(g.compensation)||0; }); });
+
+    var totalLA = parseFloat(p.laRequired)||0;
+    var pctNow  = totalLA ? ((sJM.area/totalLA)*100).toFixed(2) : '—';
+    var pct3D   = totalLA ? ((s3D.area/totalLA)*100).toFixed(2) : '—';
+
+    // ── Villages completed per stage ──
+    var vil3ACount = pVils.filter(function(v){ var r=DB.process3a.find(function(x){ return x.projectId===p.id&&x.villageId===v.id&&x.type==='upper3A'; }); return r && DB.process3aGuts.some(function(g){ return g.process3aId===r.id; }); }).length;
+    var vilJMCount = pVils.filter(function(v){ return DB.processJM.some(function(x){ return x.projectId===p.id&&x.villageId===v.id; }); }).length;
+    var vil3DCount = pVils.filter(function(v){ return DB.process3D.some(function(x){ return x.projectId===p.id&&x.villageId===v.id; }); }).length;
+    var vil3GCount = pVils.filter(function(v){ return DB.process3G.some(function(x){ return x.projectId===p.id&&x.villageId===v.id; }); }).length;
+    var vil3aCount = pVils.filter(function(v){ return DB.process3a.some(function(x){ return x.projectId===p.id&&x.villageId===v.id&&x.type==='lower3a'; }); }).length;
+
+    // ── Dates per stage — with area and village count per date ──
+    function datesWithArea(recs, dateField, gutsDb, gutKey, areaKey) {
+      var byDate = {};
+      recs.forEach(function(r) {
+        var dt = r[dateField]; if (!dt) return;
+        if (!byDate[dt]) byDate[dt] = { vils: 0, area: 0 };
+        byDate[dt].vils++;
+        var guts = gutsDb.filter(function(g){ return g[gutKey] === r.id; });
+        guts.forEach(function(g){ byDate[dt].area += parseFloat(g[areaKey])||0; });
+      });
+      var parts = Object.keys(byDate).sort().map(function(dt){
+        var d = byDate[dt];
+        return fmtDate(dt)+' ('+d.area.toFixed(4)+' Ha)('+d.vils+' Village)';
+      });
+      return parts.length ? parts.join(', ') : '<span class="rpt-na">—</span>';
+    }
+    var dates3A = datesWithArea(all3ARecs, 'notifDate', DB.process3aGuts, 'process3aId', 'area');
+    var datesJM = datesWithArea(allJMRecs, 'jmDate',    DB.processJMGuts, 'processJMId', 'modArea');
+    var dates3D = datesWithArea(all3DRecs, 'notifDate', DB.process3DGuts, 'process3DId', 'area');
+    var dates3G = datesWithArea(all3GRecs, 'notifDate', DB.process3GGuts, 'process3GId', 'compensation');
+
+    // ── Build clubbed stage rows ──
+    // Format: Stage | Area Ha (vilCount) | dates comma-separated
+    function clubRow(label, bgColor, area, guts, vilCount, dates) {
+      var areaStr = area > 0
+        ? '<strong>'+area.toFixed(4)+'</strong> Ha &nbsp;<span style="color:#555;font-size:10px">('+vilCount+' vil)</span>'
+        : '<span class="rpt-na">Not entered</span>';
+      return '<tr>'
+        + '<td class="rpt-stage-lbl" style="background:'+bgColor+'!important;width:48px">'+label+'</td>'
+        + '<td style="text-align:left;padding:7px 12px;white-space:nowrap">'+areaStr+'</td>'
+        + '<td style="text-align:left;padding:7px 12px;font-size:10px;color:#444;word-break:break-word">'+dates+'</td>'
+        + '</tr>';
+    }
+
+    // ── 3a row — one sub-row per CALA officer ──
+    var row3a = calaKeys.length === 0
+      ? '<tr><td class="rpt-stage-lbl" style="background:#2d6a8f!important;width:48px">3a</td><td colspan="2" class="rpt-na" style="padding:8px 12px">Not entered</td></tr>'
+      : calaKeys.map(function(key, idx) {
+          var g = calaGroups[key];
+          // dates inline: "date1, date2(n), ..."
+          var datesStr = Object.keys(g.dates).sort().map(function(d){
+            return fmtDate(d)+' ('+g.dates[d]+' Village)';
+          }).join(', ');
+          return '<tr>'
+            + (idx===0 ? '<td class="rpt-stage-lbl" style="background:#2d6a8f!important;width:48px" rowspan="'+calaKeys.length+'">3a</td>' : '')
+            + '<td style="text-align:left;padding:7px 12px;'+(idx>0?'border-top:1px solid #ddd':'')+'">'
+            + '<span style="font-weight:600;color:#1a3a5c">'+g.calaPost+'</span><br>'
+            + '<span style="font-size:10px;color:#333">'+g.calaName+'</span>&nbsp;'
+            + '<span style="font-size:10px;color:#888">('+g.vilCount+' vil)</span>'
+            + '</td>'
+            + '<td style="text-align:left;padding:7px 12px;font-size:10px;color:#444;word-break:break-word;'+(idx>0?'border-top:1px solid #ddd':'')+'">'
+            + datesStr
+            + '</td>'
+            + '</tr>';
+        }).join('');
+
+    // ── 3G row (show compensation) ──
+    var row3G = '<tr>'
+      + '<td class="rpt-stage-lbl" style="background:#1a6b3a!important">3G</td>'
+      + '<td style="text-align:left;padding:8px 12px">'
+      + (s3Gcomp > 0
+        ? '<strong>₹'+s3Gcomp.toLocaleString('en-IN')+'</strong> &nbsp; <span style="color:#555">('+vil3GCount+' vil)</span>'
+        : '<span class="rpt-3g-pending">Pending</span>')
+      + '</td>'
+      + '<td style="text-align:left;padding:8px 12px;font-size:10px;color:#444;line-height:1.8">'+dates3G+'</td>'
+      + '</tr>';
+
+    html += '<div class="rpt-block">'
+      + '<div class="rpt-header">'+p.name+'</div>'
+      + '<div class="rpt-outer">'
+
+      // LEFT panel
+      + '<div class="rpt-left-panel">'
+      + '<div class="proj-name">'+p.name+'</div>'
+      + 'L = '+(p.length||'—')+' Km<br>'
+      + 'Cost = ₹'+(p.tpc||'—')+' Cr<br>'
+      + 'Civil Cost = ₹'+(p.civilCost||'—')+' Cr<br>'
+      + 'LA Cost = ₹'+(p.laCost||'—')+' Cr<br>'
+      + (p.approvalDate ? 'Approved: '+fmtDate(p.approvalDate)+'<br>' : '')
+      + '<div class="rpt-status-box">Technical Bids Opened</div>'
+      + '</div>'
+
+      // RIGHT
+      + '<div class="rpt-right">'
+
+      // Summary grid
+      + '<div class="rpt-summary-grid">'
+      + '<div class="rpt-sg-cell"><div class="rpt-sg-label">Total LA Req (Ha)</div><div class="rpt-sg-val">'+(p.laRequired||'—')+'</div></div>'
+      + '<div class="rpt-sg-cell"><div class="rpt-sg-label">3D/3G Completed (Ha)</div><div class="rpt-sg-val">'+s3D.area.toFixed(4)+'</div></div>'
+      + '<div class="rpt-sg-cell"><div class="rpt-sg-label">Project Length (Km)</div><div class="rpt-sg-val">'+(p.length||'—')+'</div></div>'
+      + '<div class="rpt-sg-cell"><div class="rpt-sg-label">L-affected Now (Km)</div><div class="rpt-sg-val">'+(p.laLength||'—')+'</div><div class="rpt-sg-sub">after JM</div></div>'
+      + '<div class="rpt-sg-cell"><div class="rpt-sg-label">Land Avail Now (%)</div><div class="rpt-sg-val">'+pctNow+'%</div><div class="rpt-sg-sub">JM vs LA Req</div></div>'
+      + '<div class="rpt-sg-cell"><div class="rpt-sg-label">3D Completed (%)</div><div class="rpt-sg-val">'+pct3D+'%</div><div class="rpt-sg-sub">'+s3D.area.toFixed(4)+' Ha</div></div>'
+      + '</div>'
+
+      // Stage table — 3 columns only: Stage | Area/Info | Date(s)
+      + '<table class="rpt-tbl">'
+      + '<thead><tr>'
+      + '<th style="width:48px">Stage</th>'
+      + '<th style="text-align:left;padding-left:12px">Area / Info</th>'
+      + '<th style="text-align:left;padding-left:12px;width:200px">Date(s)</th>'
+      + '</tr></thead>'
+      + '<tbody>'
+      + row3a
+      + clubRow('3A',  '#3a6ab8', s3A.area, s3A.guts, vil3ACount, dates3A)
+      + clubRow('JMS', '#5a3d8a', sJM.area, sJM.guts, vilJMCount, datesJM)
+      + clubRow('3D',  '#8a5a00', s3D.area, s3D.guts, vil3DCount, dates3D)
+      + row3G
+      + '</tbody></table>'
+
+      + '</div>'  // rpt-right
+      + '</div>'  // rpt-outer
+      + '</div>'; // rpt-block
+  });
+
+  html += '</div>';
+  document.getElementById('report-content').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+// COMBINED ENTRY — 3a / 3A / 3D for all villages
+// ═══════════════════════════════════════════════════════
+function openCombinedEntry(projectId, stage) {
+  var p = DB.projects.find(function(x){ return x.id === projectId; });
+  var villages = DB.villages.filter(function(v){ return v.projectId === projectId; });
+  if (!villages.length) { showToast('No villages found for this project.', 'error'); return; }
+
+  var title = 'Combined Entry — ' + (stage === '3a' ? '3a CALA Notification' : stage === '3A' ? '3A Gut-wise Area' : '3D Declaration') + ' | ' + p.name;
+
+  var body = '';
+
+  if (stage === '3a') {
+    body = `
+      <div class="alert alert-info" style="margin-bottom:14px">ℹ One 3a notification typically covers all villages for a project. Fill the common details below and select which villages to apply it to.</div>
+      <div class="form-grid cols-2" style="margin-bottom:16px">
+        <div class="field"><label class="required">3a Notification Date</label><input type="date" id="cb3a-date"></div>
+        <div class="field"><label class="required">CALA Post / Designation</label><input id="cb3a-post" placeholder="e.g. Special Land Acquisition Officer"></div>
+        <div class="field"><label class="required">CALA Name</label><input id="cb3a-name" placeholder="Full name of officer"></div>
+        <div class="field"><label>CALA Mobile</label><input id="cb3a-mobile" placeholder="10-digit number"></div>
+      </div>
+      <div class="divider"></div>
+      <h4 style="margin-bottom:10px">Apply to Villages:</h4>
+      ${villages.map(function(v){
+        var existing = DB.process3a.find(function(x){ return x.villageId===v.id && x.projectId===projectId && x.type==='lower3a'; });
+        return '<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;background:var(--card)">'
+          + '<input type="checkbox" class="cb3a-vil" data-vid="'+v.id+'" '+(existing?'':'checked')+' style="width:16px;height:16px;accent-color:var(--accent)">'
+          + '<span><strong>'+v.name+'</strong> — '+v.taluka+'</span>'
+          + (existing ? ' <span style="margin-left:auto;font-size:11px;color:#4ade80">✅ Already saved ('+fmtDate(existing.notifDate)+')</span>' : '')
+          + '</label>';
+      }).join('')}`;
+
+  } else if (stage === '3A') {
+    body = `
+      <div class="alert alert-info" style="margin-bottom:14px">ℹ Enter gut numbers and area for each village. Each village can have different guts. <strong>3a must be saved first</strong> for a village to be editable.</div>
+      ${villages.map(function(v){
+        var has3a = DB.process3a.some(function(x){ return x.villageId===v.id && x.projectId===projectId && x.type==='lower3a'; });
+        var existing = DB.process3a.find(function(x){ return x.villageId===v.id && x.projectId===projectId && x.type==='upper3A'; });
+        var existGuts = existing ? DB.process3aGuts.filter(function(g){ return g.process3aId===existing.id; }) : [];
+        if (!has3a) return '<div style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;opacity:0.5"><strong>'+v.name+'</strong> — 3a not saved yet, skipped</div>';
+        var gutsHtml = existGuts.length
+          ? existGuts.map(function(g,i){ return gutRow3A_combined(v.id, i, g); }).join('')
+          : gutRow3A_combined(v.id, 0, {});
+        return '<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:14px;overflow:hidden">'
+          + '<div style="background:var(--card);padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">'
+          + '<strong>'+v.name+' ('+v.taluka+')</strong>'
+          + (existing ? '<span style="font-size:11px;color:#4ade80">✅ Saved: '+fmtDate(existing.notifDate)+'</span>' : '')
+          + '</div>'
+          + '<div style="padding:12px">'
+          + '<div class="field" style="max-width:220px;margin-bottom:10px"><label class="required">3A Notification Date</label><input type="date" id="cb3A-date-'+v.id+'" value="'+(existing?existing.notifDate:'')+'"></div>'
+          + '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="padding:5px 8px;background:var(--surface);text-align:left;font-size:11px">#</th><th style="padding:5px 8px;background:var(--surface);font-size:11px">Gut No.</th><th style="padding:5px 8px;background:var(--surface);font-size:11px">Area (Ha)</th><th style="padding:5px 8px;background:var(--surface);font-size:11px">Land Type</th><th></th></tr></thead>'
+          + '<tbody id="cb3A-body-'+v.id+'">' + gutsHtml + '</tbody></table>'
+          + '<button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="addCombinedGutRow('+v.id+')">+ Add Gut</button>'
+          + '</div></div>';
+      }).join('')}`;
+
+  } else if (stage === '3D') {
+    body = `
+      <div class="alert alert-info" style="margin-bottom:14px">ℹ Enter beneficiary names for each village. JM must be saved for guts to appear.</div>
+      ${villages.map(function(v){
+        var hasJM = DB.processJM.some(function(x){ return x.villageId===v.id && x.projectId===projectId; });
+        var existing3D = DB.process3D.find(function(x){ return x.villageId===v.id && x.projectId===projectId; });
+        var jmRec = DB.processJM.find(function(x){ return x.villageId===v.id && x.projectId===projectId; });
+        var jmGuts = jmRec ? DB.processJMGuts.filter(function(g){ return g.processJMId===jmRec.id; }) : [];
+        var d3Guts = existing3D ? DB.process3DGuts.filter(function(g){ return g.process3DId===existing3D.id; }) : [];
+        var rec3A = DB.process3a.find(function(x){ return x.villageId===v.id && x.projectId===projectId && x.type==='upper3A'; });
+        var guts3A = rec3A ? DB.process3aGuts.filter(function(g){ return g.process3aId===rec3A.id; }) : [];
+        if (!hasJM) return '<div style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;opacity:0.5"><strong>'+v.name+'</strong> — JM not saved yet, skipped</div>';
+        return '<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:14px;overflow:hidden">'
+          + '<div style="background:var(--card);padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">'
+          + '<strong>'+v.name+' ('+v.taluka+')</strong>'
+          + (existing3D ? '<span style="font-size:11px;color:#4ade80">✅ Saved: '+fmtDate(existing3D.notifDate)+'</span>' : '')
+          + '</div>'
+          + '<div style="padding:12px">'
+          + '<div class="field" style="max-width:220px;margin-bottom:10px"><label class="required">3D Notification Date</label><input type="date" id="cb3D-date-'+v.id+'" value="'+(existing3D?existing3D.notifDate:'')+'"></div>'
+          + '<table style="width:100%;border-collapse:collapse"><thead><tr>'
+          + '<th style="padding:5px 8px;background:var(--surface);font-size:11px">Gut No.</th>'
+          + '<th style="padding:5px 8px;background:var(--surface);font-size:11px">JM Area (Ha)</th>'
+          + '<th style="padding:5px 8px;background:var(--surface);font-size:11px">Land Type</th>'
+          + '<th style="padding:5px 8px;background:var(--surface);font-size:11px">Beneficiary Name</th>'
+          + '</tr></thead><tbody>'
+          + jmGuts.map(function(g){
+              var dg = d3Guts.find(function(x){ return x.gutNumber===g.gutNumber; });
+              var g3A = guts3A.find(function(x){ return x.gutNumber===g.gutNumber; });
+              var isGovt = g3A && g3A.landType==='Government Land';
+              return '<tr>'
+                + '<td class="mono" style="padding:5px 8px;border:1px solid var(--border)">'+g.gutNumber+'</td>'
+                + '<td class="mono" style="padding:5px 8px;border:1px solid var(--border)">'+g.modArea+'</td>'
+                + '<td style="padding:5px 8px;border:1px solid var(--border)"><span style="font-size:10px;'+(isGovt?'color:#94a3b8':'color:#4ade80')+'">'+(isGovt?'🏛 Govt':'🏠 Private')+'</span></td>'
+                + '<td style="padding:5px 8px;border:1px solid var(--border)"><input class="inlineInput" id="cb3D-ben-'+v.id+'-'+g.gutNumber+'" data-gut="'+g.gutNumber+'" data-area="'+g.modArea+'" data-landtype="'+(isGovt?'Government Land':'Private Land')+'" value="'+(dg?dg.beneficiary:'')+'" placeholder="'+(isGovt?'Govt land':'Enter beneficiary')+'" style="min-width:180px'+(isGovt?';opacity:0.5':'')+'"'+(isGovt?' disabled':'')+'/></td>'
+                + '</tr>';
+            }).join('')
+          + '</tbody></table></div></div>';
+      }).join('')}`;
+  }
+
+  openModal(title, body, [
+    { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
+    { label: '💾 Save All', cls: 'btn-primary', action: function(){ saveCombinedEntry(projectId, stage, villages); } }
+  ]);
+  document.querySelector('.modal').classList.add('wide');
+  // init gut counters for 3A
+  if (stage === '3A') {
+    window._cbGutCount = window._cbGutCount || {};
+    villages.forEach(function(v){
+      var existing = DB.process3a.find(function(x){ return x.villageId===v.id && x.projectId===projectId && x.type==='upper3A'; });
+      var existGuts = existing ? DB.process3aGuts.filter(function(g){ return g.process3aId===existing.id; }) : [];
+      window._cbGutCount[v.id] = Math.max(existGuts.length, 1);
+    });
+  }
+}
+
+function gutRow3A_combined(vid, i, g) {
+  var isGovt = g.landType === 'Government Land';
+  return '<tr id="cbrow-'+vid+'-'+i+'">'
+    + '<td class="mono" style="padding:4px 6px;border:1px solid var(--border)">'+(i+1)+'</td>'
+    + '<td style="padding:4px 6px;border:1px solid var(--border)"><input class="inlineInput" id="cbg-num-'+vid+'-'+i+'" value="'+(g.gutNumber||'')+'" placeholder="Gut No." style="width:90px"></td>'
+    + '<td style="padding:4px 6px;border:1px solid var(--border)"><input type="number" class="inlineInput" id="cbg-area-'+vid+'-'+i+'" value="'+(g.area||'')+'" placeholder="0.00" style="width:80px"></td>'
+    + '<td style="padding:4px 6px;border:1px solid var(--border)"><select class="inlineInput" id="cbg-type-'+vid+'-'+i+'" style="min-width:140px">'
+    + '<option value="Private Land" '+((!isGovt)?'selected':'')+'>🏠 Private Land</option>'
+    + '<option value="Government Land" '+(isGovt?'selected':'')+'>🏛 Government Land</option>'
+    + '</select></td>'
+    + '<td style="padding:4px 6px"><button class="btn btn-danger btn-sm" onclick="document.getElementById(\'cbrow-'+vid+'-'+i+'\').remove()">✕</button></td>'
+    + '</tr>';
+}
+
+function addCombinedGutRow(vid) {
+  if (!window._cbGutCount) window._cbGutCount = {};
+  var i = window._cbGutCount[vid] || 0;
+  window._cbGutCount[vid] = i + 1;
+  var tbody = document.getElementById('cb3A-body-' + vid);
+  if (tbody) tbody.insertAdjacentHTML('beforeend', gutRow3A_combined(vid, i, {}));
+}
+
+function saveCombinedEntry(projectId, stage, villages) {
+  var saved = 0, skipped = 0;
+
+  if (stage === '3a') {
+    var date   = document.getElementById('cb3a-date')?.value;
+    var post   = document.getElementById('cb3a-post')?.value.trim();
+    var name   = document.getElementById('cb3a-name')?.value.trim();
+    var mobile = document.getElementById('cb3a-mobile')?.value.trim();
+    if (!date || !post || !name) { showToast('Date, CALA Post and Name are required.', 'error'); return; }
+    document.querySelectorAll('.cb3a-vil').forEach(function(cb) {
+      if (!cb.checked) return;
+      var vid = parseInt(cb.getAttribute('data-vid'));
+      var existing = DB.process3a.find(function(x){ return x.villageId===vid && x.projectId===projectId && x.type==='lower3a'; });
+      if (existing) {
+        existing.notifDate=date; existing.calaPost=post; existing.calaName=name; existing.calaMobile=mobile;
+      } else {
+        DB.process3a.push({ id:newId(), projectId:projectId, villageId:vid, type:'lower3a', notifDate:date, calaPost:post, calaName:name, calaMobile:mobile });
+      }
+      saved++;
+    });
+
+  } else if (stage === '3A') {
+    villages.forEach(function(v) {
+      var dateEl = document.getElementById('cb3A-date-' + v.id);
+      if (!dateEl) return;
+      var date = dateEl.value;
+      if (!date) { skipped++; return; }
+      // collect guts
+      var guts = [];
+      var count = window._cbGutCount ? (window._cbGutCount[v.id]||0) : 0;
+      for (var i = 0; i < count + 5; i++) {
+        var numEl = document.getElementById('cbg-num-'+v.id+'-'+i);
+        if (!numEl) continue;
+        if (numEl.value.trim()) {
+          guts.push({
+            num: numEl.value.trim(),
+            area: (document.getElementById('cbg-area-'+v.id+'-'+i)||{}).value || '',
+            landType: (document.getElementById('cbg-type-'+v.id+'-'+i)||{}).value || 'Private Land'
+          });
+        }
+      }
+      if (!guts.length) { skipped++; return; }
+      var existing = DB.process3a.find(function(x){ return x.villageId===v.id && x.projectId===projectId && x.type==='upper3A'; });
+      if (existing) {
+        existing.notifDate = date;
+        DB.process3aGuts = DB.process3aGuts.filter(function(g){ return g.process3aId !== existing.id; });
+        guts.forEach(function(g){ DB.process3aGuts.push({ id:newId(), process3aId:existing.id, gutNumber:g.num, area:g.area, landType:g.landType }); });
+      } else {
+        var id = newId();
+        DB.process3a.push({ id:id, projectId:projectId, villageId:v.id, type:'upper3A', notifDate:date });
+        guts.forEach(function(g){ DB.process3aGuts.push({ id:newId(), process3aId:id, gutNumber:g.num, area:g.area, landType:g.landType }); });
+      }
+      saved++;
+    });
+
+  } else if (stage === '3D') {
+    villages.forEach(function(v) {
+      var dateEl = document.getElementById('cb3D-date-' + v.id);
+      if (!dateEl) return;
+      var date = dateEl.value;
+      if (!date) { skipped++; return; }
+      var jmRec = DB.processJM.find(function(x){ return x.villageId===v.id && x.projectId===projectId; });
+      if (!jmRec) { skipped++; return; }
+      var jmGuts = DB.processJMGuts.filter(function(g){ return g.processJMId===jmRec.id; });
+      var gutData = jmGuts.map(function(g){
+        var el = document.getElementById('cb3D-ben-'+v.id+'-'+g.gutNumber);
+        return { gutNumber:g.gutNumber, area:g.modArea, beneficiary: el ? el.value : '', landType: el ? el.getAttribute('data-landtype') : 'Private Land' };
+      });
+      var existing = DB.process3D.find(function(x){ return x.villageId===v.id && x.projectId===projectId; });
+      if (existing) {
+        existing.notifDate = date;
+        DB.process3DGuts = DB.process3DGuts.filter(function(g){ return g.process3DId !== existing.id; });
+        gutData.forEach(function(g){ DB.process3DGuts.push({ id:newId(), process3DId:existing.id, gutNumber:g.gutNumber, area:g.area, beneficiary:g.beneficiary, landType:g.landType }); });
+      } else {
+        var id = newId();
+        DB.process3D.push({ id:id, projectId:projectId, villageId:v.id, notifDate:date });
+        gutData.forEach(function(g){ DB.process3DGuts.push({ id:newId(), process3DId:id, gutNumber:g.gutNumber, area:g.area, beneficiary:g.beneficiary, landType:g.landType }); });
+      }
+      saved++;
+    });
+  }
+
+  saveDB();
+  closeModal();
+  var msg = '✅ Saved '+saved+' village(s)' + (skipped ? ', skipped '+skipped+' (missing data).' : '.');
+  showToast(msg, 'success');
+  renderDashboard();
+}
+
+function exportCSV() {
+  const rows = [['Project','TAFS','Village','Taluka','Gut No','3a Notif Date','3A Area (Ha)','JM Area (Ha)','Beneficiary','Compensation (Rs)']];
+  getMyProjects().forEach(function(p) {
+    var pVils = DB.villages.filter(function(v){ return v.projectId === p.id; });
+    pVils.forEach(function(vil) {
+      var rec3A = DB.process3a.find(function(x){ return x.projectId===p.id && x.villageId===vil.id && x.type==='upper3A'; });
+      var rec3a = DB.process3a.find(function(x){ return x.projectId===p.id && x.villageId===vil.id && x.type==='lower3a'; });
+      var guts  = rec3A ? DB.process3aGuts.filter(function(g){ return g.process3aId===rec3A.id; }) : [];
+      var vJM   = DB.processJM.find(function(x){ return x.projectId===p.id && x.villageId===vil.id; });
+      var v3D   = DB.process3D.find(function(x){ return x.projectId===p.id && x.villageId===vil.id; });
+      var v3G   = DB.process3G.find(function(x){ return x.projectId===p.id && x.villageId===vil.id; });
+      if (!guts.length) {
+        rows.push([p.name, p.tafsNo||'', vil.name, vil.taluka, '—', rec3a?fmtDate(rec3a.notifDate):'', '', '', '', '']);
+      } else {
+        guts.forEach(function(g) {
+          var jg = vJM ? DB.processJMGuts.find(function(j){ return j.processJMId===vJM.id && j.gutNumber===g.gutNumber; }) : null;
+          var dg = v3D ? DB.process3DGuts.find(function(d){ return d.process3DId===v3D.id && d.gutNumber===g.gutNumber; }) : null;
+          var gg = v3G ? DB.process3GGuts.find(function(x){ return x.process3GId===v3G.id && x.gutNumber===g.gutNumber; }) : null;
+          rows.push([p.name, p.tafsNo||'', vil.name, vil.taluka, g.gutNumber, rec3a?fmtDate(rec3a.notifDate):'', g.area||'', jg?jg.modArea:'', dg?dg.beneficiary:'', gg?gg.compensation:'']);
+        });
+      }
+    });
+  });
+  var csv = rows.map(function(r){ return r.map(function(x){ return '"'+(x+'').replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+
+  // Use data URI instead of createObjectURL (works in sandboxed iframes)
+  var dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  var a = document.createElement('a');
+  a.href = dataUri;
+  a.download = 'LA_Report_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast('CSV exported! Check your downloads.', 'success');
+}
+
+function printReport() {
+  var reportHtml = document.getElementById('report-content')?.innerHTML;
+  if (!reportHtml) { showToast('No report to print. Please generate a report first.', 'error'); return; }
+
+  // Remove existing overlay if any
+  var old = document.getElementById('print-overlay');
+  if (old) old.remove();
+
+  // Create a full-screen print overlay inside the page
+  var overlay = document.createElement('div');
+  overlay.id = 'print-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:99999;overflow-y:auto;padding:30px;box-sizing:border-box;color:#111;font-family:Arial,sans-serif;font-size:11px';
+
+  overlay.innerHTML =
+    '<div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #2a5298">'
+    + '<div>'
+    + '<h2 style="margin:0;color:#2a5298;font-size:16px">Land Acquisition Tracking System</h2>'
+    + '<div style="font-size:11px;color:#555;margin-top:4px">Generated: ' + new Date().toLocaleString('en-IN') + '</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:10px">'
+    + '<button onclick="window.print()" style="background:#2a5298;color:#fff;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🖨 Print</button>'
+    + '<button onclick="document.getElementById(\'print-overlay\').remove()" style="background:#e74c3c;color:#fff;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">✕ Close</button>'
+    + '</div>'
+    + '</div>'
+    + '<style>'
+    + '.rpt-block{margin-bottom:28px;border:1.5px solid #4a7ab5;page-break-inside:avoid}'
+    + '.rpt-header{background:#2a5298;color:#fff;padding:8px 14px;font-size:13px;font-weight:700}'
+    + '.rpt-outer{display:flex}'
+    + '.rpt-left-panel{min-width:160px;max-width:170px;background:#f0f4f0;border-right:2px solid #4a7ab5;padding:10px;font-size:10px;line-height:1.9}'
+    + '.rpt-right{flex:1;overflow:hidden}'
+    + '.rpt-summary-grid{display:grid;grid-template-columns:repeat(6,1fr);border-bottom:2px solid #4a7ab5;background:#dce6f7}'
+    + '.rpt-sg-cell{padding:6px 10px;border-right:1px solid #b0c4de}'
+    + '.rpt-sg-label{font-size:9px;font-weight:700;text-transform:uppercase;color:#2a5298}'
+    + '.rpt-sg-val{font-size:13px;font-weight:700}'
+    + '.rpt-sg-sub{font-size:9px;color:#555}'
+    + '.rpt-tbl{width:100%;border-collapse:collapse}'
+    + '.rpt-tbl th{background:#2a5298;color:#fff;padding:6px 8px;font-size:10px;border:1px solid #3a6ab8;text-align:center}'
+    + '.rpt-tbl td{padding:5px 8px;font-size:11px;text-align:center;border:1px solid #ccc;vertical-align:middle}'
+    + '.rpt-stage-lbl{background:#2a5298!important;color:#fff!important;font-weight:700;font-size:13px;text-align:center!important}'
+    + '.rpt-row-lbl{background:#dce6f7;color:#2a5298;font-size:9px;font-weight:600;text-align:left!important;padding-left:8px!important}'
+    + '.rpt-total-cell{background:#fffbea;font-weight:700;color:#1a3a5c}'
+    + '.rpt-3g-done{background:#e8f5ec;color:#1a6b3a;font-weight:700}'
+    + '.rpt-3g-pending{background:#fff8e1;color:#b45309;font-style:italic}'
+    + '.rpt-na{color:#aaa}'
+    + '.rpt-status-box{background:#e8f0fb;border:1px solid #4a7ab5;padding:5px 8px;text-align:center;margin-top:8px;font-size:10px;font-weight:700;color:#2a5298}'
+    + '.proj-name{font-weight:700;font-size:11px;color:#1a3a5c;margin-bottom:4px}'
+    + '@media print{.no-print{display:none!important}body>*:not(#print-overlay){display:none!important}}'
+    + '</style>'
+    + reportHtml;
+
+  document.body.appendChild(overlay);
+}
+
+function saveAsPDF() {
+  var reportContent = document.getElementById('report-content');
+  if (!reportContent || !reportContent.innerHTML.trim()) {
+    showToast('No report to generate. Please select a project first.', 'error');
+    return;
+  }
+
+  // Collect all CSS styles from the page
+  var css = '';
+  document.querySelectorAll('style').forEach(function(s){ css += s.innerHTML; });
+
+  var projectName = '';
+  var sel = document.getElementById('rpt-project');
+  if (sel && sel.value) {
+    var p = DB.projects.find(function(x){ return x.id == sel.value; });
+    if (p) projectName = ' - ' + p.name;
+  }
+
+  var fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8">'
+    + '<title>LA Report' + projectName + '</title>'
+    + '<style>' + css + '</style>'
+    + '<style>'
+    + 'body{background:#fff!important;color:#111!important;margin:0;padding:16px;font-family:Arial,sans-serif}'
+    + '.sidebar,.topbar,#topbar,nav{display:none!important}'
+    + '.rpt-block{page-break-inside:avoid;margin-bottom:24px}'
+    + '@media print{'
+    + '  body{padding:8px}'
+    + '  .no-print{display:none!important}'
+    + '  .rpt-block{page-break-inside:avoid}'
+    + '}'
+    + '</style>'
+    + '</head><body>'
+    + '<div class="no-print" style="background:#2a5298;color:#fff;padding:12px 20px;margin:-16px -16px 20px;display:flex;justify-content:space-between;align-items:center">'
+    + '<div><strong>Land Acquisition Tracking System — Report</strong>'
+    + '<span style="font-size:11px;margin-left:16px;opacity:0.8">Generated: ' + new Date().toLocaleString('en-IN') + '</span></div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button onclick="window.print()" style="background:#fff;color:#2a5298;border:none;padding:7px 18px;border-radius:5px;cursor:pointer;font-weight:700;font-size:13px">🖨 Print / Save as PDF</button>'
+    + '<button onclick="window.close()" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);padding:7px 14px;border-radius:5px;cursor:pointer;font-size:13px">✕ Close</button>'
+    + '</div></div>'
+    + reportContent.innerHTML
+    + '<script>window.addEventListener("load",function(){ setTimeout(function(){ window.print(); },400); });<\/script>'
+    + '</body></html>';
+
+  // Download as HTML file — opens in browser with auto print dialog
+  var uri = 'data:text/html;charset=utf-8,' + encodeURIComponent(fullHtml);
+  var a = document.createElement('a');
+  a.href = uri;
+  a.download = 'LA_Report' + projectName.replace(/ /g,'_') + '_' + new Date().toISOString().slice(0,10) + '.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  showToast('✅ Report file downloaded! Open it in Chrome/Edge → it will auto-open Print dialog → choose "Save as PDF".', 'success');
+}
+
+
+function openModal(title, body, buttons) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = body;
+  const footer = document.getElementById('modal-footer');
+  footer.innerHTML = '';
+  buttons.forEach(b => {
+    const btn = document.createElement('button');
+    btn.className = 'btn ' + b.cls;
+    btn.textContent = b.label;
+    btn.addEventListener('click', b.action);
+    footer.appendChild(btn);
+  });
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('modal-box').classList.remove('wide');
+}
+
+// Custom confirm dialog — replaces browser confirm() which is blocked in iframes
+function confirmModal(message, onConfirm) {
+  openModal('Confirm Action',
+    `<div style="font-size:15px;line-height:1.6;color:var(--text)">${message}</div>`,
+    [
+      { label: 'Cancel',  cls: 'btn-secondary', action: function() { closeModal(); } },
+      { label: 'Confirm Delete', cls: 'btn-danger',    action: function() { closeModal(); onConfirm(); } }
+    ]
+  );
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  const icons = { success: '✅', error: '❌', info: 'ℹ' };
+  t.innerHTML = `<span>${icons[type]||'ℹ'}</span> ${msg}`;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Key enter for login already set above
+</script>
+</body>
+</html>
