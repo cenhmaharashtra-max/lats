@@ -509,14 +509,40 @@ tr:hover td { background: var(--card-hover); }
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
-  .sidebar { transform: translateX(-100%); transition: transform 0.3s ease; position: fixed; z-index: 1000; height: 100%; }
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    position: fixed;
+    z-index: 1000;
+    height: 100%;
+  }
   .sidebar.open { transform: translateX(0); }
   .main-content { margin-left: 0; }
   .form-grid.cols-2, .form-grid.cols-3 { grid-template-columns: 1fr; }
   .hamburger { display: flex !important; }
+  .sidebar-overlay { display: block !important; }
 }
-.hamburger { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; background: var(--accent); border: none; border-radius: 8px; cursor: pointer; font-size: 18px; color: white; margin-right: 10px; }
-.sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; }
+.hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  color: white;
+  margin-right: 10px;
+}
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+}
 .chip {
   display: inline-block;
   padding: 2px 8px;
@@ -576,9 +602,7 @@ tr:hover td { background: var(--card-hover); }
     </div>
     <div class="field">
       <label>Username</label>
-      <select id="login-user" style="width:100%">
-        <option value="">— Select Username —</option>
-      </select>
+      <input type="text" id="login-user" placeholder="Enter username" style="width:100%">
     </div>
     <div class="field">
       <label>Password</label>
@@ -617,15 +641,16 @@ tr:hover td { background: var(--card-hover); }
     </div>
   </aside>
 
- <!-- MAIN -->
+  <!-- MAIN -->
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
   <div class="main-content">
     <div class="topbar">
       <div style="display:flex;align-items:center;">
         <button class="hamburger" onclick="toggleSidebar()">☰</button>
         <div>
-        <h1 id="page-title">Dashboard</h1>
-        <div class="breadcrumb" id="page-breadcrumb">Home</div>
+          <h1 id="page-title">Dashboard</h1>
+          <div class="breadcrumb" id="page-breadcrumb">Home</div>
+        </div>
       </div>
       <div class="flex gap-2 items-center">
         <span class="text-muted" style="font-size:12px;" id="current-date"></span>
@@ -713,7 +738,6 @@ function mapSync(d) {
     id:g.id, process3GId:g.p3g_id, gutNumber:g.gut_number,
     compensation:g.compensation, landType:g.land_type
   }));
-  // Build assignments array for getMyProjects
   DB.assignments = [];
   DB.projects.forEach(p=>(p.assignedUsers||[]).forEach(uid=>DB.assignments.push({uid,pid:p.id})));
 }
@@ -723,16 +747,13 @@ async function loadDB() {
   mapSync(data);
 }
 
-// saveDB — push entire in-memory state to server, then reload fresh
 async function saveDB() {
   await api('POST','/api/save', DB);
   await loadDB();
 }
 
-// Generate a large unique int ID (avoids conflict with Postgres SERIAL)
 function newId() { return Math.floor(Math.random() * 900000000) + 100000000; }
 
-// DD/MM/YYYY display formatter
 function fmtDate(d) {
   if (!d) return '—';
   const p = String(d).split('-');
@@ -753,31 +774,18 @@ function getMyProjects() {
 let currentUser = null;
 
 async function populateLoginDropdown() {
-  const sel = document.getElementById('login-user');
-  sel.innerHTML = '<option value="">— Select Username —</option>';
+  // Nothing to populate — now using plain text input
   try {
     const users = await api('GET','/api/auth/users');
     DB.users = users;
-    const admin = users.find(u=>u.username==='CENH');
-    if (admin) { const o=document.createElement('option'); o.value=admin.username; o.textContent=admin.username+' (Admin)'; sel.appendChild(o); }
-    users.filter(u=>u.username!=='CENH').sort((a,b)=>a.username.localeCompare(b.username))
-      .forEach(u=>{ const o=document.createElement('option'); o.value=u.username; o.textContent=u.username; sel.appendChild(o); });
-  } catch(e) {
-    // Not admin-accessible — allow manual text entry
-    const inp = document.createElement('input');
-    inp.id='login-user-text'; inp.placeholder='Username';
-    inp.style.cssText='width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text)';
-    sel.replaceWith(inp);
-  }
+  } catch(e) {}
 }
 
 async function doLogin() {
-  const selEl = document.getElementById('login-user');
-  const txtEl = document.getElementById('login-user-text');
-  const username = (txtEl ? txtEl.value : selEl?.value||'').trim();
+  const username = (document.getElementById('login-user')?.value||'').trim();
   const password = document.getElementById('login-pass').value;
   const errEl = document.getElementById('login-error');
-  if (!username) { errEl.textContent='Please select a username.'; return; }
+  if (!username) { errEl.textContent='Please enter your username.'; return; }
   if (!password) { errEl.textContent='Please enter your password.'; return; }
   errEl.textContent='Signing in…';
   try {
@@ -805,13 +813,12 @@ async function doLogout() {
 
 document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('loginBtn').addEventListener('click', doLogin);
+  document.getElementById('login-user').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
   document.getElementById('login-pass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
   document.getElementById('resetStorageLink').addEventListener('click', function(){
     confirmModal('This will <strong>sign you out</strong> and reload the page.', ()=>doLogout());
   });
-
-  
-   // Always show login screen
+  // Always show login screen — no auto-login
   populateLoginDropdown();
 });
 
@@ -821,13 +828,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 // ═══════════════════════════════════════════════════════
 function toggleSidebar() {
   document.querySelector('.sidebar').classList.toggle('open');
-  document.getElementById('sidebar-overlay').style.display = document.querySelector('.sidebar').classList.contains('open') ? 'block' : 'none';
+  document.getElementById('sidebar-overlay').style.display =
+    document.querySelector('.sidebar').classList.contains('open') ? 'block' : 'none';
 }
 function closeSidebar() {
   document.querySelector('.sidebar').classList.remove('open');
   document.getElementById('sidebar-overlay').style.display = 'none';
 }
-  function initApp() {
+
+function initApp() {
   document.getElementById('sb-avatar').textContent = currentUser.name[0].toUpperCase();
   document.getElementById('sb-name').textContent = currentUser.name;
   document.getElementById('sb-role').textContent = currentUser.role === 'admin' ? 'Administrator' : 'User';
@@ -1162,9 +1171,10 @@ function saveProject(id) {
   saveDB(); closeModal(); renderProjects();
 }
 
-function showAssignModal(projectId) {
+async function showAssignModal(projectId) {
+  try { DB.users = await api('GET', '/api/auth/users'); } catch(e) {}
   const p = DB.projects.find(x => x.id === projectId);
-  const assigned = (DB.assignments || []).filter(a => a.pid === projectId).map(a => a.uid);
+  const assigned = (p.assignedUsers || []);
   const users = DB.users.filter(u => u.role !== 'admin');
   openModal(`Assign Users — ${p.name}`, `
     <p class="text-muted mb-4">Select users to assign to this project:</p>
@@ -1183,6 +1193,7 @@ function showAssignModal(projectId) {
 
 function saveAssignments(projectId, users) {
   if (!DB.assignments) DB.assignments = [];
+  // Update assignments array
   DB.assignments = DB.assignments.filter(a => a.pid !== projectId);
   const assignedUids = [];
   users.forEach(u => {
@@ -1191,6 +1202,7 @@ function saveAssignments(projectId, users) {
       assignedUids.push(u.id);
     }
   });
+  // Also update assignedUsers on the project (this is what gets saved to DB)
   const p = DB.projects.find(x => x.id === projectId);
   if (p) p.assignedUsers = assignedUids;
   saveDB(); closeModal(); showToast('Assignments saved.', 'success');
@@ -1261,7 +1273,6 @@ async function saveUser(id) {
       await api('POST', '/api/auth/users', { username, password, name: username });
       showToast('User created.', 'success');
     }
-    // Reload user list into DB.users
     DB.users = await api('GET', '/api/auth/users');
     closeModal(); renderUsers(); populateLoginDropdown();
   } catch(e) { showToast(e.message, 'error'); }
@@ -1272,10 +1283,7 @@ async function deleteUser(id) {
   confirmModal('Delete user <strong>"' + (u ? u.username : id) + '"</strong>?', async function() {
     try {
       await api('DELETE', `/api/auth/users/${id}`);
-      // Remove from project assignments too
-      DB.projects.forEach(p => {
-        if (p.assignedUsers) p.assignedUsers = p.assignedUsers.filter(uid => uid !== id);
-      });
+      DB.projects.forEach(p => { if (p.assignedUsers) p.assignedUsers = p.assignedUsers.filter(uid => uid !== id); });
       await saveDB();
       DB.users = await api('GET', '/api/auth/users');
       showToast('User deleted.', 'info'); renderUsers(); populateLoginDropdown();
