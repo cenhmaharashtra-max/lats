@@ -610,7 +610,9 @@ tr:hover td { background: var(--card-hover); }
     </div>
     <div class="field">
       <label>Username</label>
-      <input type="text" id="login-user" placeholder="Enter username" style="width:100%">
+      <select id="login-user" style="width:100%">
+        <option value="">— Select Username —</option>
+      </select>
     </div>
     <div class="field">
       <label>Password</label>
@@ -780,11 +782,32 @@ function getMyProjects() {
 let currentUser = null;
 
 async function populateLoginDropdown() {
-  // Nothing to populate — now using plain text input
+  const sel = document.getElementById('login-user');
+  if (!sel) return;
   try {
     const users = await api('GET','/api/auth/users');
     DB.users = users;
-  } catch(e) {}
+    sel.innerHTML = '<option value="">— Select Username —</option>';
+    // Admin first
+    const admin = users.find(u => u.username === 'CENH');
+    if (admin) {
+      const o = document.createElement('option');
+      o.value = admin.username;
+      o.textContent = admin.username + ' (Admin)';
+      sel.appendChild(o);
+    }
+    // Then other users
+    users.filter(u => u.username !== 'CENH')
+      .sort((a,b) => a.username.localeCompare(b.username))
+      .forEach(u => {
+        const o = document.createElement('option');
+        o.value = u.username;
+        o.textContent = u.username;
+        sel.appendChild(o);
+      });
+  } catch(e) {
+    // If can't fetch users, keep as-is
+  }
 }
 
 async function doLogin() {
