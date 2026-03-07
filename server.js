@@ -9,7 +9,7 @@ const pool       = require('./db/pool');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '10mb' }));app.get('*', (req,res) => 
 app.use(express.urlencoded({ extended: true }));
 
 // Sessions stored in Postgres
@@ -34,6 +34,14 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api',      require('./routes/api'));
 
 // All other routes → serve the app
+app.get('/setup', async (req,res) => {
+  try {
+    const bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash('CENHMAH123', 10);
+    await pool.query(`INSERT INTO lats_users (username, password, name, role) VALUES ('CENH', $1, 'Administrator', 'admin') ON CONFLICT (username) DO UPDATE SET password = $1`, [hash]);
+    res.send('✅ Password reset! <a href="/">Login now</a>');
+  } catch(e) { res.send('Error: ' + e.message); }
+});
 app.get('*', (req,res) => res.sendFile(path.join(__dirname,'public','index.html')));
 
 // Init DB schema and start
