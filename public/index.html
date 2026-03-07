@@ -1168,11 +1168,15 @@ function showAssignModal(projectId) {
 function saveAssignments(projectId, users) {
   if (!DB.assignments) DB.assignments = [];
   DB.assignments = DB.assignments.filter(a => a.pid !== projectId);
+  const assignedUids = [];
   users.forEach(u => {
     if (document.getElementById('assign-' + u.id)?.checked) {
       DB.assignments.push({ uid: u.id, pid: projectId });
+      assignedUids.push(u.id);
     }
   });
+  const p = DB.projects.find(x => x.id === projectId);
+  if (p) p.assignedUsers = assignedUids;
   saveDB(); closeModal(); showToast('Assignments saved.', 'success');
 }
 
