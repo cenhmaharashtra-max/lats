@@ -785,9 +785,10 @@ async function populateLoginDropdown() {
   const sel = document.getElementById('login-user');
   if (!sel) return;
   try {
-    const users = await api('GET','/api/auth/usernames');
+    const res = await fetch('/api/auth/usernames', { credentials: 'include' });
+    if (!res.ok) return;
+    const users = await res.json();
     sel.innerHTML = '<option value="">— Select Username —</option>';
-    // Admin first
     const admin = users.find(u => u.username === 'CENH');
     if (admin) {
       const o = document.createElement('option');
@@ -795,7 +796,6 @@ async function populateLoginDropdown() {
       o.textContent = admin.username + ' (Admin)';
       sel.appendChild(o);
     }
-    // Then other users
     users.filter(u => u.role !== 'admin')
       .sort((a,b) => a.username.localeCompare(b.username))
       .forEach(u => {
@@ -805,7 +805,7 @@ async function populateLoginDropdown() {
         sel.appendChild(o);
       });
   } catch(e) {
-    // If can't fetch users, keep as-is
+    console.error('Could not load usernames:', e);
   }
 }
 
@@ -841,12 +841,7 @@ async function doLogout() {
 
 document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('loginBtn').addEventListener('click', doLogin);
-  document.getElementById('login-user').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
   document.getElementById('login-pass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
-  document.getElementById('resetStorageLink').addEventListener('click', function(){
-    confirmModal('This will <strong>sign you out</strong> and reload the page.', ()=>doLogout());
-  });
-  // Always show login screen — no auto-login
   populateLoginDropdown();
 });
 
