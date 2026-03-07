@@ -803,17 +803,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     confirmModal('This will <strong>sign you out</strong> and reload the page.', ()=>doLogout());
   });
 
-  // Auto-login if session cookie still valid
-  try {
-    currentUser = await api('GET','/api/auth/me');
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app').style.display='flex';
-    await loadDB();
-    initApp();
-  } catch(e) {
-    // Not logged in — show login screen
-    populateLoginDropdown();
-  }
+  
+   // Always show login screen
+  populateLoginDropdown();
 });
 
 
