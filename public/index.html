@@ -772,6 +772,8 @@ function isProjectAssigned(projectId, userId) {
   return DB.assignments.some(a=>a.pid===projectId && a.uid===userId);
 }
 function getMyProjects() {
+  // If admin is viewing as a user, show that user's projects
+  if (viewAsUser) return DB.projects.filter(p=>isProjectAssigned(p.id, viewAsUser.id));
   if (currentUser.role==='admin') return DB.projects;
   return DB.projects.filter(p=>isProjectAssigned(p.id, currentUser.id));
 }
@@ -892,6 +894,42 @@ function startAutoRefresh() {
   }, 30000); // every 30 seconds
 }
 
+// viewAsUser: admin can impersonate a user for review
+let viewAsUser = null;
+
+function setViewAs(user) {
+  viewAsUser = user;
+  updateViewAsBanner();
+  renderSidebar();
+  navigate('dashboard');
+}
+
+function clearViewAs() {
+  viewAsUser = null;
+  updateViewAsBanner();
+  renderSidebar();
+  navigate('dashboard');
+}
+
+function updateViewAsBanner() {
+  const existing = document.getElementById('viewas-banner');
+  if (existing) existing.remove();
+  if (!viewAsUser) return;
+  const banner = document.createElement('div');
+  banner.id = 'viewas-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2000;background:#b45309;color:#fff;text-align:center;padding:8px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:16px';
+  banner.innerHTML = '👁 Viewing as: <strong>' + viewAsUser.username + '</strong> &nbsp;|&nbsp; This is a read-only admin preview &nbsp;'
+    + '<button onclick="clearViewAs()" style="background:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.5);color:#fff;padding:3px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700">✕ Exit View</button>';
+  document.body.prepend(banner);
+  // Push content down
+  document.getElementById('app').style.paddingTop = '36px';
+}
+
+// Override getMyProjects to respect viewAsUser
+function getEffectiveUser() {
+  return viewAsUser || currentUser;
+}
+
 const adminNav = [
   { section: 'Main', items: [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -901,6 +939,7 @@ const adminNav = [
     { id: 'projects', label: 'Projects', icon: '📁' },
     { id: 'users', label: 'Users', icon: '👥' },
     { id: 'villages', label: 'Village Master', icon: '🏘' },
+    { id: 'view-as', label: 'View As User', icon: '👁' },
   ]},
   { section: 'LA Process', items: [
     { id: 'la-process', label: 'LA Process Entry', icon: '📝' },
@@ -926,12 +965,26 @@ function renderSidebar() {
     ${section.items.map(item => `
       <div class="nav-item" data-page="${item.id}" id="nav-${item.id.replace('-','_')}">
         <span class="icon">${item.icon}</span> ${item.label}
+        ${item.id === 'view-as' && viewAsUser ? '<span style="font-size:10px;background:#b45309;color:#fff;padding:1px 6px;border-radius:4px;margin-left:4px">' + viewAsUser.username + '</span>' : ''}
       </div>
     `).join('')}
   `).join('');
   el.querySelectorAll('.nav-item').forEach(div => {
     div.addEventListener('click', () => navigate(div.dataset.page));
   });
+  // Update user info in sidebar when viewing as
+  if (viewAsUser) {
+    document.getElementById('sb-avatar').textContent = viewAsUser.username[0].toUpperCase();
+    document.getElementById('sb-name').textContent = viewAsUser.username;
+    document.getElementById('sb-role').textContent = 'Viewing as User';
+    document.getElementById('sb-role').style.color = '#fb923c';
+  } else {
+    const displayName = currentUser.role === 'admin' ? currentUser.username : currentUser.name;
+    document.getElementById('sb-avatar').textContent = displayName[0].toUpperCase();
+    document.getElementById('sb-name').textContent = displayName;
+    document.getElementById('sb-role').textContent = 'Administrator';
+    document.getElementById('sb-role').style.color = '';
+  }
 }
 
 function setActiveNav(page) {
@@ -962,6 +1015,57 @@ function navigate(page, params) {
   else if (page === 'villages') renderVillages();
   else if (page === 'la-process') renderLAProcess(params);
   else if (page === 'reports') renderReports();
+  else if (page === 'view-as') renderViewAs();
+}
+
+// ═══════════════════════════════════════════════════════
+// VIEW AS USER
+// ═══════════════════════════════════════════════════════
+function renderViewAs() {
+  const normalUsers = DB.users.filter(u => u.role !== 'admin');
+  document.getElementById('page-content').innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>👁 View As User — Admin Review Mode</h3>
+        ${viewAsUser ? `<button class="btn btn-danger btn-sm" onclick="clearViewAs()">✕ Exit View As</button>` : ''}
+      </div>
+      <div class="panel-body">
+        <div class="alert alert-info" style="margin-bottom:20px">
+          ℹ Select a user to see exactly what they see — their assigned projects, villages, and LA data. You are in <strong>read-only preview mode</strong>.
+        </div>
+        ${normalUsers.length === 0
+          ? `<div class="empty-state"><div class="icon">👥</div><h3>No Users Yet</h3><p>Create users from User Management first.</p></div>`
+          : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px">
+              ${normalUsers.map(u => {
+                const assignedProjects = DB.projects.filter(p => isProjectAssigned(p.id, u.id));
+                const isActive = viewAsUser && viewAsUser.id === u.id;
+                return `<div style="border:2px solid ${isActive ? 'var(--accent)' : 'var(--border)'};border-radius:10px;padding:18px;background:${isActive ? 'rgba(232,160,32,0.08)' : 'var(--card)'};cursor:pointer;transition:all 0.15s" onclick="setViewAs(${JSON.stringify({id:u.id,username:u.username,name:u.name,role:u.role}).replace(/"/g,'&quot;')})">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                    <div style="width:36px;height:36px;border-radius:50%;background:${isActive ? 'var(--accent)' : 'var(--navy-light)'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:${isActive ? 'var(--navy)' : 'var(--accent)'}">
+                      ${u.username[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <div style="font-weight:600;font-size:14px">${u.username}</div>
+                      <div style="font-size:11px;color:var(--text-dim)">${assignedProjects.length} project(s)</div>
+                    </div>
+                    ${isActive ? '<span style="margin-left:auto;font-size:11px;background:var(--accent);color:var(--navy);padding:2px 8px;border-radius:4px;font-weight:700">ACTIVE</span>' : ''}
+                  </div>
+                  <div style="font-size:11px;color:var(--text-dim)">
+                    ${assignedProjects.length === 0
+                      ? '<span style="color:#ef4444">No projects assigned</span>'
+                      : assignedProjects.map(p => `<span class="chip">${p.name}</span>`).join('')}
+                  </div>
+                  <div style="margin-top:12px">
+                    <button class="btn btn-primary btn-sm" style="width:100%" onclick="event.stopPropagation();setViewAs(${JSON.stringify({id:u.id,username:u.username,name:u.name,role:u.role}).replace(/"/g,'&quot;')})">
+                      ${isActive ? '✓ Currently Viewing' : '👁 View as ' + u.username}
+                    </button>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>`}
+      </div>
+    </div>
+  `;
 }
 
 // ═══════════════════════════════════════════════════════
