@@ -819,7 +819,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 // ═══════════════════════════════════════════════════════
 // APP INIT
 // ═══════════════════════════════════════════════════════
-function initApp() {
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').style.display = document.querySelector('.sidebar').classList.contains('open') ? 'block' : 'none';
+}
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').style.display = 'none';
+}
+  function initApp() {
   document.getElementById('sb-avatar').textContent = currentUser.name[0].toUpperCase();
   document.getElementById('sb-name').textContent = currentUser.name;
   document.getElementById('sb-role').textContent = currentUser.role === 'admin' ? 'Administrator' : 'User';
@@ -878,6 +886,7 @@ function setActiveNav(page) {
 
 let currentPage = '';
 function navigate(page, params) {
+  closeSidebar();
   currentPage = page;
   setActiveNav(page);
   
