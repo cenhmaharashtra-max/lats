@@ -1,18 +1,17 @@
-
 const express    = require('express');
 const session    = require('express-session');
 const pgSession  = require('connect-pg-simple')(session);
 const path       = require('path');
 const fs         = require('fs');
+const bcrypt     = require('bcryptjs');
 const pool       = require('./db/pool');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: '10mb' }));app.get('*', (req,res) => 
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Sessions stored in Postgres
 app.use(session({
   store: new pgSession({ pool, tableName: 'lats_sessions', createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET || 'lats-change-me-in-prod-2024',
@@ -26,36 +25,35 @@ app.use(session({
   }
 }));
 
-// Static files (the frontend HTML/CSS/JS)
 app.use(express.static(path.join(__dirname, 'public')));
-
-// API routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api',      require('./routes/api'));
 
-// All other routes → serve the app
-app.get('/setup', async (req,res) => {
+app.get('/setup', async (req, res) => {
   try {
-    const bcrypt = require('bcryptjs');
     const hash = await bcrypt.hash('CENHMAH123', 10);
-    await pool.query(`INSERT INTO lats_users (username, password, name, role) VALUES ('CENH', $1, 'Administrator', 'admin') ON CONFLICT (username) DO UPDATE SET password = $1`, [hash]);
-    res.send('✅ Password reset! <a href="/">Login now</a>');
-  } catch(e) { res.send('Error: ' + e.message); }
+    await pool.query(
+      "INSERT INTO lats_users (username, password, name, role) VALUES ('CENH', $1, 'Administrator', 'admin') ON CONFLICT (username) DO UPDATE SET password = $1",
+      [hash]
+    );
+    res.send('Password reset! <a href="/">Login now</a>');
+  } catch(e) {
+    res.send('Error: ' + e.message);
+  }
 });
-app.get('*', (req,res) => res.sendFile(path.join(__dirname,'public','index.html')));
 
-// Init DB schema and start
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
 async function start() {
   try {
-    const schema = fs.readFileSync(path.join(__dirname,'db','schema.sql'), 'utf8');
+    const schema = fs.readFileSync(path.join(__dirname, 'db', 'schema.sql'), 'utf8');
     await pool.query(schema);
-    console.log('✅ DB schema ready');
+    console.log('DB schema ready');
   } catch(e) {
     console.error('DB init error:', e.message);
   }
   app.listen(PORT, () => {
-    console.log(`🚀 LATS running → http://localhost:${PORT}`);
-    console.log(`   Login: CENH / CENHMAH123`);
+    console.log('LATS running on port ' + PORT);
   });
 }
 start();
