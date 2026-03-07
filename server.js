@@ -9,6 +9,7 @@ const pool       = require('./db/pool');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -19,7 +20,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    secure: process.env.NODE_ENV === 'production',
+    secure: 'auto',
     httpOnly: true,
     sameSite: 'lax'
   }
@@ -36,7 +37,7 @@ app.get('/setup', async (req, res) => {
       "INSERT INTO lats_users (username, password, name, role) VALUES ('CENH', $1, 'Administrator', 'admin') ON CONFLICT (username) DO UPDATE SET password = $1",
       [hash]
     );
-    res.send('Password reset! <a href="/">Login now</a>');
+    res.send('✅ Password reset! <a href="/">Login now</a>');
   } catch(e) {
     res.send('Error: ' + e.message);
   }
