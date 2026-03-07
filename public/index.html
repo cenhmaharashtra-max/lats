@@ -785,8 +785,7 @@ async function populateLoginDropdown() {
   const sel = document.getElementById('login-user');
   if (!sel) return;
   try {
-    const users = await api('GET','/api/auth/users');
-    DB.users = users;
+    const users = await api('GET','/api/auth/usernames');
     sel.innerHTML = '<option value="">— Select Username —</option>';
     // Admin first
     const admin = users.find(u => u.username === 'CENH');
@@ -797,7 +796,7 @@ async function populateLoginDropdown() {
       sel.appendChild(o);
     }
     // Then other users
-    users.filter(u => u.username !== 'CENH')
+    users.filter(u => u.role !== 'admin')
       .sort((a,b) => a.username.localeCompare(b.username))
       .forEach(u => {
         const o = document.createElement('option');
