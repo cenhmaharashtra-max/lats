@@ -102,4 +102,4 @@ CREATE TABLE IF NOT EXISTS lats_p3g_guts (
 -- Default admin (password: CENHMAH123)
 INSERT INTO lats_users (username, password, name, role)
 VALUES ('CENH', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lihO', 'Administrator', 'admin')
-ON CONFLICT (username) DO NOTHING;
+ON CONFLICT (username) DO UPDATE SET password = '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
