@@ -723,7 +723,7 @@ async function saveDB() {
 }
 
 // Generate a large unique int ID (avoids conflict with Postgres SERIAL)
-function newId() { return Date.now() * 1000 + Math.floor(Math.random()*1000); }
+function newId() { return Math.floor(Math.random() * 900000000) + 100000000; }
 
 // DD/MM/YYYY display formatter
 function fmtDate(d) {
