@@ -237,6 +237,9 @@ body {
 .stat-card.accent .value { color: var(--accent); }
 .stat-card.green .value { color: var(--green); }
 .stat-card.blue .value { color: var(--blue); }
+.stat-card.purple .value { color: #a78bfa; }
+.stat-card.orange .value { color: #fb923c; }
+.stat-card.teal .value { color: #2dd4bf; }
 
 .panel {
   background: var(--card);
@@ -615,9 +618,7 @@ tr:hover td { background: var(--card-hover); }
     </div>
     <button class="btn-login" id="loginBtn">Sign In</button>
     <div class="login-error" id="login-error"></div>
-    <div style="margin-top:12px;text-align:center">
-      <span style="font-size:11px;color:var(--text-dim);cursor:pointer;text-decoration:underline" id="resetStorageLink">Reset / Clear saved data</span>
-    </div>
+
   </div>
 </div>
 
@@ -843,12 +844,35 @@ function closeSidebar() {
 }
 
 function initApp() {
-  document.getElementById('sb-avatar').textContent = currentUser.name[0].toUpperCase();
-  document.getElementById('sb-name').textContent = currentUser.name;
+  const displayName = currentUser.role === 'admin' ? currentUser.username : currentUser.name;
+  document.getElementById('sb-avatar').textContent = displayName[0].toUpperCase();
+  document.getElementById('sb-name').textContent = displayName;
   document.getElementById('sb-role').textContent = currentUser.role === 'admin' ? 'Administrator' : 'User';
   document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-IN', { weekday:'short', year:'numeric', month:'short', day:'numeric' });
   renderSidebar();
   navigate('dashboard');
+  startAutoRefresh();
+}
+
+// Auto-refresh: re-fetch data from server every 30 seconds and re-render current page
+let _autoRefreshTimer = null;
+function startAutoRefresh() {
+  if (_autoRefreshTimer) clearInterval(_autoRefreshTimer);
+  _autoRefreshTimer = setInterval(async function() {
+    // Only refresh if app is visible and user is logged in
+    if (document.hidden || !currentUser) return;
+    try {
+      await loadDB();
+      // Re-render current page silently (no toast)
+      const page = currentPage;
+      if (page === 'dashboard') renderDashboard();
+      else if (page === 'projects') renderProjects();
+      else if (page === 'villages') renderVillages();
+      else if (page === 'users') renderUsers();
+      else if (page === 'reports') renderReportContent();
+      // la-process not auto-refreshed to avoid disrupting active data entry
+    } catch(e) { /* silent fail */ }
+  }, 30000); // every 30 seconds
 }
 
 const adminNav = [
@@ -956,12 +980,12 @@ function renderDashboard() {
         <div class="value">${total3a}</div>
         <div class="sub">CALA notified</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card purple">
         <div class="label">3A Details</div>
         <div class="value">${total3A}</div>
         <div class="sub">Gut-wise area entered</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card orange">
         <div class="label">JM Completed</div>
         <div class="value">${totalJM}</div>
         <div class="sub">Joint measurement done</div>
@@ -971,7 +995,7 @@ function renderDashboard() {
         <div class="value">${total3D}</div>
         <div class="sub">Awards declared</div>
       </div>
-      <div class="stat-card accent">
+      <div class="stat-card teal">
         <div class="label">3G Compensation</div>
         <div class="value">${total3G}</div>
         <div class="sub">₹ ${totalComp.toLocaleString('en-IN')} total</div>
