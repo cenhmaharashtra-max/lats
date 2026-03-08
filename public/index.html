@@ -1119,23 +1119,25 @@ function renderDashboard() {
       </div>
       <div class="stat-card purple">
         <div class="label">3A Details</div>
-        <div class="value" style="font-size:20px">${total3A.toFixed(2)} Ha (${count3A} Villages)</div>
+        <div class="value" style="font-size:22px">${total3A.toFixed(2)} Ha <span style="font-size:13px;font-weight:500">(${count3A} Villages)</span></div>
         <div class="sub">Intention to Acquire Land</div>
       </div>
       <div class="stat-card orange">
         <div class="label">JM Completed</div>
-        <div class="value" style="font-size:20px">${totalJM.toFixed(2)} Ha (${countJM} Villages)</div>
+        <div class="value" style="font-size:22px">${totalJM.toFixed(2)} Ha <span style="font-size:13px;font-weight:500">(${countJM} Villages)</span></div>
         <div class="sub">Joint Measurement of Land</div>
       </div>
       <div class="stat-card green">
         <div class="label">3D Completed</div>
-        <div class="value" style="font-size:20px">${total3D.toFixed(2)} Ha (${count3D} Villages)</div>
+        <div class="value" style="font-size:22px">${total3D.toFixed(2)} Ha <span style="font-size:13px;font-weight:500">(${count3D} Villages)</span></div>
         <div class="sub">Declaration of Acquisition</div>
       </div>
       <div class="stat-card teal">
         <div class="label">3G Completed</div>
-        <div class="value" style="font-size:20px">${total3G.toFixed(2)} Ha (₹${totalComp3G.toLocaleString('en-IN')})</div>
-        <div class="sub">Award Declared (${count3G} Villages)</div>
+        <div class="value" style="font-size:22px">${total3G.toFixed(2)} Ha</div>
+        <div style="font-size:13px;font-weight:500;color:#2dd4bf;margin-top:2px">(${count3G} Villages)</div>
+        <div class="sub" style="margin-top:2px">₹${totalComp3G.toLocaleString('en-IN')}</div>
+        <div class="sub">Award Declared</div>
       </div>
     </div>
 
