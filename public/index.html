@@ -1079,7 +1079,10 @@ function renderDashboard() {
   const myVillages = DB.villages.filter(function(v){ return myProjectIds.indexOf(v.projectId) !== -1; });
   const myVillageIds = myVillages.map(function(v){ return v.id; });
 
-  const total3a = DB.process3a.filter(function(x){ return myProjectIds.indexOf(x.projectId) !== -1 && x.type === 'lower3a'; }).length;
+  const all3aRecs = DB.process3a.filter(function(x){ return myProjectIds.indexOf(x.projectId) !== -1 && x.type === 'lower3a'; });
+  const total3aVillages = all3aRecs.length;
+  // Unique CALA notifications = unique notifDate+calaPost combinations
+  const uniqueCALA = new Set(all3aRecs.map(function(x){ return (x.notifDate||'') + '||' + (x.calaPost||''); })).size;
 
   // 3A Ha total + village count
   const all3ARecs = DB.process3a.filter(function(x){ return myProjectIds.indexOf(x.projectId) !== -1 && x.type === 'upper3A'; });
@@ -1114,22 +1117,26 @@ function renderDashboard() {
       </div>
       <div class="stat-card blue">
         <div class="label">3<span style="text-transform:lowercase">a</span> Notification</div>
-        <div class="value">${total3a}</div>
-        <div class="sub">CALA notified</div>
+        <div class="value" style="font-size:22px">${uniqueCALA} CALA</div>
+        <div style="font-size:13px;font-weight:500;color:#3b82f6;margin-top:2px">${total3aVillages} Villages</div>
+        <div class="sub">Notification Published</div>
       </div>
       <div class="stat-card purple">
         <div class="label">3A Details</div>
-        <div class="value" style="font-size:22px">${total3A.toFixed(2)} Ha <span style="font-size:13px;font-weight:500">(${count3A} Villages)</span></div>
+        <div class="value" style="font-size:22px">${total3A.toFixed(2)} Ha</div>
+        <div style="font-size:13px;font-weight:500;color:#a78bfa;margin-top:2px">(${count3A} Villages)</div>
         <div class="sub">Intention to Acquire Land</div>
       </div>
       <div class="stat-card orange">
         <div class="label">JM Completed</div>
-        <div class="value" style="font-size:22px">${totalJM.toFixed(2)} Ha <span style="font-size:13px;font-weight:500">(${countJM} Villages)</span></div>
+        <div class="value" style="font-size:22px">${totalJM.toFixed(2)} Ha</div>
+        <div style="font-size:13px;font-weight:500;color:#fb923c;margin-top:2px">(${countJM} Villages)</div>
         <div class="sub">Joint Measurement of Land</div>
       </div>
       <div class="stat-card green">
         <div class="label">3D Completed</div>
-        <div class="value" style="font-size:22px">${total3D.toFixed(2)} Ha <span style="font-size:13px;font-weight:500">(${count3D} Villages)</span></div>
+        <div class="value" style="font-size:22px">${total3D.toFixed(2)} Ha</div>
+        <div style="font-size:13px;font-weight:500;color:#22c55e;margin-top:2px">(${count3D} Villages)</div>
         <div class="sub">Declaration of Acquisition</div>
       </div>
       <div class="stat-card teal">
