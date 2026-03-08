@@ -1857,12 +1857,25 @@ function renderTab_lower3a() {
   const existing = DB.process3a.find(x =>
     x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'lower3a');
   const isAdmin = currentUser.role === 'admin';
+  // For add village: pre-fill from main village 3a if not yet saved
+  const isAddlVil = !!(DB.villages.find(v=>v.id===laState.villageId)?.isAddl);
+  let prefill3a = null;
+  if (isAddlVil && !existing) {
+    // Find main village (same project, same base name without Add)
+    const thisVil = DB.villages.find(v=>v.id===laState.villageId);
+    const mainVil = DB.villages.find(v=>v.projectId===laState.projectId && !v.isAddl &&
+      thisVil?.name.startsWith(v.name.replace(/ Add \(.*\)$/,'')));
+    if (mainVil) {
+      prefill3a = DB.process3a.find(x=>x.villageId===mainVil.id && x.projectId===laState.projectId && x.type==='lower3a');
+    }
+  }
+  const src3a = existing || prefill3a;
   document.getElementById('la-tab-content').innerHTML = `
     <div class="panel">
       <div class="panel-header">
         <h3>Stage 1: 3a — CALA Appointment Notification</h3>
         <div class="flex gap-2 items-center">
-          <span class="badge ${existing ? 'badge-complete' : 'badge-pending'}">${existing ? '✓ Saved' : 'Pending'}</span>
+          <span class="badge ${existing ? 'badge-complete' : (prefill3a ? 'badge-3a' : 'badge-pending')}">${existing ? '✓ Saved' : (prefill3a ? '⚡ Pre-filled' : 'Pending')}</span>
           ${isAdmin && existing ? `<button class="btn btn-danger btn-sm" id="del_low3a_btn">🗑 Delete</button>` : ''}
         </div>
       </div>
@@ -1872,13 +1885,13 @@ function renderTab_lower3a() {
         </div>
         <div class="form-grid cols-2">
           <div class="field"><label class="required">3a Notification Date</label>
-            <input type="date" id="f_low3a_date" value="${existing?.notifDate||''}"></div>
+            <input type="date" id="f_low3a_date" value="${src3a?.notifDate||''}"></div>
           <div class="field"><label class="required">CALA Post / Designation</label>
-            <input id="f_low3a_post" value="${existing?.calaPost||''}" placeholder="e.g. Special Land Acquisition Officer"></div>
+            <input id="f_low3a_post" value="${src3a?.calaPost||''}" placeholder="e.g. Special Land Acquisition Officer"></div>
           <div class="field"><label class="required">CALA Name</label>
-            <input id="f_low3a_name" value="${existing?.calaName||''}" placeholder="Full name of officer"></div>
+            <input id="f_low3a_name" value="${src3a?.calaName||''}" placeholder="Full name of officer"></div>
           <div class="field"><label>CALA Mobile Number</label>
-            <input id="f_low3a_mobile" value="${existing?.calaMobile||''}" placeholder="10-digit number"></div>
+            <input id="f_low3a_mobile" value="${src3a?.calaMobile||''}" placeholder="10-digit number"></div>
         </div>
         <div class="mt-4">
           <button class="btn btn-primary" id="save_low3a_btn">💾 Save 3a Details</button>
@@ -1957,6 +1970,7 @@ function renderTab_upper3A(hasLower3a) {
   const guts = existing ? DB.process3aGuts.filter(g => g.process3aId === existing.id) : [];
   window._gutCount_3A = guts.length;
   const isAdmin = currentUser.role === 'admin';
+  const isAddlVil = !!(DB.villages.find(v=>v.id===laState.villageId)?.isAddl);
 
   document.getElementById('la-tab-content').innerHTML = `
     <div class="panel">
@@ -1968,9 +1982,11 @@ function renderTab_upper3A(hasLower3a) {
         </div>
       </div>
       <div class="panel-body">
-        <div class="alert alert-info" style="margin-bottom:18px">
+        ${isAddlVil ? `<div class="alert" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;margin-bottom:16px;font-size:13px">
+          ℹ This is an <strong>Add Village</strong>. Gut numbers are pre-filled from additional guts found in JM. Enter the <strong>3A notification date</strong> and other details, then save.
+        </div>` : `<div class="alert alert-info" style="margin-bottom:18px">
           ℹ <strong>3A</strong> (Section 3A) records the specific gut numbers and their areas proposed for acquisition.
-        </div>
+        </div>`}
         <div class="form-grid cols-2" style="max-width:700px">
           <div class="field">
             <label class="required">3A Notification Date</label>
@@ -1988,7 +2004,7 @@ function renderTab_upper3A(hasLower3a) {
         </div>
         <div class="divider"></div>
         <div class="flex justify-between items-center mb-4">
-          <h4>Gut Number Details</h4>
+          <h4>Gut Number Details ${isAddlVil ? '<span style="font-size:12px;color:#f59e0b;font-weight:400">(Pre-filled from JM)</span>' : ''}</h4>
           <button class="btn btn-secondary btn-sm" id="addGut3A_btn">+ Add Gut</button>
         </div>
         <div class="table-wrap">
@@ -2110,6 +2126,7 @@ function renderTab_JM(hasUpper3A) {
   const guts3A = DB.process3aGuts.filter(g => g.process3aId === rec3A?.id);
   const jmGuts = existing ? DB.processJMGuts.filter(g => g.processJMId === existing.id) : [];
   const isAdmin = currentUser.role === 'admin';
+  const isAddlVil = !!(DB.villages.find(v=>v.id===laState.villageId)?.isAddl);
 
   // Build gut rows: 3A guts + any extra JM guts not in 3A
   const extraJmGuts = jmGuts.filter(j => !guts3A.find(g => g.gutNumber === j.gutNumber));
@@ -2124,6 +2141,9 @@ function renderTab_JM(hasUpper3A) {
         </div>
       </div>
       <div class="panel-body">
+        ${isAddlVil ? `<div class="alert" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;margin-bottom:16px;font-size:13px">
+          ℹ This is an <strong>Add Village</strong>. JM date and guts are pre-filled from the main village JM (add guts only). All fields are editable.
+        </div>` : ''}
         <div class="form-grid cols-2">
           <div class="field"><label class="required">JM Date</label>
             <input type="date" id="fjm_date" value="${existing?.jmDate||''}"></div>
@@ -2141,7 +2161,7 @@ function renderTab_JM(hasUpper3A) {
         <div class="divider"></div>
         <h4 class="mb-4">Modified Area After JM (per Gut)</h4>
         <div class="alert alert-info" style="margin-bottom:12px;font-size:12px">
-          ℹ If JM area is <strong>greater than 3A area</strong> for a gut, it will be flagged as <strong style="color:#f59e0b">Additional Area</strong> and auto-created as a separate <em>Village (Add)</em> process after saving.
+          ℹ If JM area is <strong>greater than 3A area</strong> for a gut, the <strong>extra area is moved</strong> to a new village named <strong>"VillageName Add (Taluka)"</strong> automatically after saving. You must complete 3A → 3D → 3G separately for that Add village.
           You can also <strong>add new gut numbers</strong> not in 3A — these will also go to Additional Area.
         </div>
         <div class="table-wrap">
@@ -2306,13 +2326,13 @@ function renderTab_JM(hasUpper3A) {
     // Handle Additional Area — create/update "Village (Add)" village and its 3a, 3A, JM records
     if (addlGuts.length > 0) {
       const baseVillage = DB.villages.find(v => v.id === laState.villageId);
-      const addlVilName = baseVillage.name + ' (Add)';
+      const addlVilName = baseVillage.name + ' Add (' + baseVillage.taluka + ')';
 
       // Find or create Add village
       let addlVil = DB.villages.find(v => v.projectId === laState.projectId && v.name === addlVilName);
       if (!addlVil) {
         const addlVilId = newId();
-        DB.villages.push({ id: addlVilId, projectId: laState.projectId, name: addlVilName, taluka: baseVillage.taluka + ' (Add)', isAddl: true });
+        DB.villages.push({ id: addlVilId, projectId: laState.projectId, name: addlVilName, taluka: baseVillage.taluka, isAddl: true });
         addlVil = DB.villages.find(v => v.id === addlVilId);
       }
 
@@ -2323,17 +2343,17 @@ function renderTab_JM(hasUpper3A) {
           type: 'lower3a', notifDate: base3a.notifDate, calaPost: base3a.calaPost, calaName: base3a.calaName, calaMobile: base3a.calaMobile });
       }
 
-      // Create/update 3A record for Add village with addl guts
+      // Create 3A record for Add village — blank notifDate, guts pre-filled from addl guts
+      // User must enter the 3A notification date before proceeding to 3D
       let addl3A = DB.process3a.find(x => x.villageId === addlVil.id && x.projectId === laState.projectId && x.type === 'upper3A');
       if (!addl3A) {
         const addl3AId = newId();
-        DB.process3a.push({ id: addl3AId, projectId: laState.projectId, villageId: addlVil.id, type: 'upper3A', notifDate: rec3A?.notifDate || jmDate });
+        DB.process3a.push({ id: addl3AId, projectId: laState.projectId, villageId: addlVil.id, type: 'upper3A', notifDate: '' });
         addl3A = DB.process3a.find(x => x.id === addl3AId);
       }
-      // Replace guts
+      // Always replace guts with addl guts
       DB.process3aGuts = DB.process3aGuts.filter(g => g.process3aId !== addl3A.id);
       addlGuts.forEach(function(g) {
-        // Get land type from original 3A guts
         const orig3Agut = guts3A.find(x => x.gutNumber === g.gutNumber);
         const landType = orig3Agut ? orig3Agut.landType : 'Private Land';
         DB.process3aGuts.push({ id: newId(), process3aId: addl3A.id, gutNumber: g.gutNumber, area: g.modArea, landType: landType });
@@ -2354,7 +2374,7 @@ function renderTab_JM(hasUpper3A) {
       });
 
       saveDB();
-      showToast('✅ JM saved! Additional Area auto-created for ' + addlVilName + '.', 'success');
+      showToast('✅ JM saved! Extra gut area moved to new village "' + addlVilName + '". You can see it in Village Master and proceed with 3A → 3D → 3G for it separately.', 'success');
     }
 
     // Handle completely new villages found during JM
@@ -2420,7 +2440,7 @@ function renderTab_JM(hasUpper3A) {
     } else {
       // Clean up any existing Add village for this village if no more addl guts
       const baseVillage = DB.villages.find(v => v.id === laState.villageId);
-      const addlVilName = baseVillage.name + ' (Add)';
+      const addlVilName = baseVillage.name + ' Add (' + baseVillage.taluka + ')';
       const addlVil = DB.villages.find(v => v.projectId === laState.projectId && v.name === addlVilName);
       if (addlVil) {
         DB.processJM = DB.processJM.filter(x => x.villageId !== addlVil.id);
@@ -2438,7 +2458,7 @@ function renderTab_JM(hasUpper3A) {
         // Also remove Add village
         const baseVillage = DB.villages.find(v => v.id === laState.villageId);
         if (baseVillage) {
-          const addlVil = DB.villages.find(v => v.projectId === laState.projectId && v.name === baseVillage.name + ' (Add)');
+          const addlVil = DB.villages.find(v => v.projectId === laState.projectId && v.name === baseVillage.name + ' Add (' + baseVillage.taluka + ')');
           if (addlVil) {
             DB.processJM = DB.processJM.filter(x => x.villageId !== addlVil.id);
             DB.process3a = DB.process3a.filter(x => x.villageId !== addlVil.id);
@@ -2483,6 +2503,7 @@ function renderTab_3D(hasJM) {
       </div>`;
     return;
   }
+  const isAddlVil = !!(DB.villages.find(v=>v.id===laState.villageId)?.isAddl);
   const existing = DB.process3D.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
   const jmRec  = DB.processJM.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
   const jmGuts = DB.processJMGuts.filter(g => g.processJMId === jmRec?.id);
@@ -2490,6 +2511,8 @@ function renderTab_3D(hasJM) {
   const rec3A  = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
   const guts3A = DB.process3aGuts.filter(g => g.process3aId === rec3A?.id);
   const isAdmin = currentUser.role === 'admin';
+  // For add villages: use 3A guts (pre-filled from JM) as source; gut/area/landtype readonly
+  const gutSource = isAddlVil ? guts3A : jmGuts;
 
   document.getElementById('la-tab-content').innerHTML = `
     <div class="panel">
@@ -2501,6 +2524,9 @@ function renderTab_3D(hasJM) {
         </div>
       </div>
       <div class="panel-body">
+        ${isAddlVil ? `<div class="alert" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;margin-bottom:16px;font-size:13px">
+          ℹ This is an <strong>Add Village</strong>. Gut No, Area and Land Type are pre-filled from 3A (add guts only). Enter notification date and other details.
+        </div>` : ''}
         <div class="form-grid cols-2" style="max-width:700px">
           <div class="field">
             <label class="required">3D Notification Date</label>
@@ -2522,15 +2548,17 @@ function renderTab_3D(hasJM) {
           <table>
             <thead><tr><th>Gut Number</th><th>JM Area (Ha)</th><th>Land Type</th><th>Beneficiary Name</th></tr></thead>
             <tbody>
-              ${jmGuts.map((g, i) => {
+              ${gutSource.map((g, i) => {
                 const dg = d3Guts.find(d => d.gutNumber === g.gutNumber);
-                const g3A = guts3A ? guts3A.find(x => x.gutNumber === g.gutNumber) : null;
+                // For add village: area from g.area (3A guts); for main: g.modArea (JM guts)
+                const gutArea = isAddlVil ? (g.area||g.modArea) : g.modArea;
+                const g3A = isAddlVil ? g : (guts3A ? guts3A.find(x => x.gutNumber === g.gutNumber) : null);
                 const isGovt = g3A && g3A.landType === 'Government Land';
                 return `<tr>
                   <td class="mono">${g.gutNumber}</td>
-                  <td class="mono">${g.modArea}</td>
+                  <td class="mono">${gutArea}</td>
                   <td><span class="badge" style="${isGovt ? 'background:rgba(148,163,184,0.15);color:#94a3b8' : 'background:rgba(34,197,94,0.15);color:#4ade80'}">${isGovt ? '🏛 Govt' : '🏠 Private'}</span></td>
-                  <td><input class="inlineInput" id="d3_ben_${i}" data-gut="${g.gutNumber}" data-area="${g.modArea}" data-landtype="${isGovt ? 'Government Land' : 'Private Land'}"
+                  <td><input class="inlineInput" id="d3_ben_${i}" data-gut="${g.gutNumber}" data-area="${gutArea}" data-landtype="${isGovt ? 'Government Land' : 'Private Land'}"
                     value="${dg?.beneficiary||''}" placeholder="${isGovt ? 'Govt. land — no beneficiary needed' : 'Enter beneficiary name'}" style="min-width:220px${isGovt ? ';opacity:0.5' : ''}"></td>
                 </tr>`;
               }).join('')}
@@ -2548,10 +2576,11 @@ function renderTab_3D(hasJM) {
     const date = document.getElementById('f3d_date').value;
     if (!date) { showToast('3D Notification Date is required.', 'error'); return; }
     const laLength3d = document.getElementById('f3d_lalen')?.value||'';
-    const guts = jmGuts.map((g, i) => {
+    const guts = gutSource.map((g, i) => {
       const el = document.getElementById('d3_ben_' + i);
       const lt = el ? el.getAttribute('data-landtype') : 'Private Land';
-      return { gutNumber: g.gutNumber, area: g.modArea, beneficiary: el ? el.value : '', landType: lt || 'Private Land' };
+      const gutArea = isAddlVil ? (g.area||g.modArea) : g.modArea;
+      return { gutNumber: g.gutNumber, area: gutArea, beneficiary: el ? el.value : '', landType: lt || 'Private Land' };
     });
     if (existing) {
       existing.notifDate = date; existing.laLength3d = laLength3d;
@@ -2585,6 +2614,7 @@ function renderTab_3G(has3D) {
       </div>`;
     return;
   }
+  const isAddlVil = !!(DB.villages.find(v=>v.id===laState.villageId)?.isAddl);
   const existing = DB.process3G.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
   const d3Rec  = DB.process3D.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
   const allD3Guts = DB.process3DGuts.filter(g => g.process3DId === d3Rec?.id);
@@ -2593,12 +2623,14 @@ function renderTab_3G(has3D) {
   const rec3A = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
   const guts3A = DB.process3aGuts.filter(g => g.process3aId === rec3A?.id);
 
-  // Separate private vs govt guts
+  // Separate private vs govt — for add villages use landType stored in 3D guts directly
   const privateGuts = allD3Guts.filter(g => {
+    if (isAddlVil) return g.landType !== 'Government Land';
     const g3A = guts3A.find(x => x.gutNumber === g.gutNumber);
     return !g3A || g3A.landType !== 'Government Land';
   });
   const govtGuts = allD3Guts.filter(g => {
+    if (isAddlVil) return g.landType === 'Government Land';
     const g3A = guts3A.find(x => x.gutNumber === g.gutNumber);
     return g3A && g3A.landType === 'Government Land';
   });
@@ -2620,6 +2652,9 @@ function renderTab_3G(has3D) {
       </div>
       <div class="panel-body">
 
+        ${isAddlVil ? `<div class="alert" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;margin-bottom:16px;font-size:13px">
+          ℹ This is an <strong>Add Village</strong>. Guts are pre-filled from 3D (add guts only). Enter notification date and compensation amounts.
+        </div>` : ''}
         ${govtGuts.length > 0 ? `
         <div class="alert alert-info" style="margin-bottom:16px">
           🏛 <strong>${govtGuts.length} Government Land gut(s)</strong> — 
