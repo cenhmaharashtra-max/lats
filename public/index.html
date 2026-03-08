@@ -712,6 +712,7 @@ function mapSync(d) {
     id:p.id, name:p.name, tafsNo:p.tafs_no, length:p.length, tpc:p.tpc,
     civilCost:p.civil_cost, laCost:p.la_cost, totalLand:p.total_land,
     availLand:p.avail_land, laRequired:p.la_required, laLength:p.la_length,
+    laLengthTafs:p.la_length_tafs,
     approvalDate:p.approval_date, assignedUsers:p.assigned_users||[]
   }));
   DB.villages = (d.villages||[]).map(v=>({
