@@ -720,27 +720,27 @@ function mapSync(d) {
   DB.process3a = (d.p3a||[]).map(x=>({
     id:x.id, projectId:x.project_id, villageId:x.village_id, type:x.ptype,
     notifDate:x.notif_date||'', calaPost:x.cala_post, calaName:x.cala_name,
-    calaMobile:x.cala_mobile, isAdditional:x.is_addl
+    calaMobile:x.cala_mobile, laLength3a:x.la_length_3a||'', isAdditional:x.is_addl
   }));
   DB.process3aGuts = (d.p3aGuts||[]).map(g=>({
     id:g.id, process3aId:g.p3a_id, gutNumber:g.gut_number, area:g.area, landType:g.land_type
   }));
   DB.processJM = (d.pjm||[]).map(x=>({
     id:x.id, projectId:x.project_id, villageId:x.village_id,
-    jmDate:x.jm_date||'', sheetDate:x.sheet_date||''
+    jmDate:x.jm_date||'', sheetDate:x.sheet_date||'', laLengthJm:x.la_length_jm||''
   }));
   DB.processJMGuts = (d.pjmGuts||[]).map(g=>({
     id:g.id, processJMId:g.pjm_id, gutNumber:g.gut_number, modArea:g.mod_area
   }));
   DB.process3D = (d.p3d||[]).map(x=>({
-    id:x.id, projectId:x.project_id, villageId:x.village_id, notifDate:x.notif_date||''
+    id:x.id, projectId:x.project_id, villageId:x.village_id, notifDate:x.notif_date||'', laLength3d:x.la_length_3d||''
   }));
   DB.process3DGuts = (d.p3dGuts||[]).map(g=>({
     id:g.id, process3DId:g.p3d_id, gutNumber:g.gut_number, area:g.area,
     beneficiary:g.beneficiary, landType:g.land_type
   }));
   DB.process3G = (d.p3g||[]).map(x=>({
-    id:x.id, projectId:x.project_id, villageId:x.village_id, notifDate:x.notif_date||''
+    id:x.id, projectId:x.project_id, villageId:x.village_id, notifDate:x.notif_date||'', laLength3g:x.la_length_3g||''
   }));
   DB.process3GGuts = (d.p3gGuts||[]).map(g=>({
     id:g.id, process3GId:g.p3g_id, gutNumber:g.gut_number,
@@ -1305,14 +1305,15 @@ function showProjectModal(id) {
         <input id="pf-name" value="${p?.name||''}" placeholder="e.g. National Highway 48 Extension">
       </div>
       <div class="field"><label class="required">TAFS Number</label><input id="pf-tafs" value="${p?.tafsNo||''}" placeholder="e.g. TAFS/2024/001"></div>
-      <div class="field"><label>Length (km)</label><input id="pf-len" type="number" value="${p?.length||''}" placeholder="0.00"></div>
+      <div class="field"><label>Project Length (km)</label><input id="pf-len" type="number" value="${p?.length||''}" placeholder="0.00" oninput="(function(){var l=parseFloat(document.getElementById('pf-len').value)||0;var la=parseFloat(document.getElementById('pf-latafs').value)||0;document.getElementById('pf-lavail-tafs').value=l>0||la>0?(l-la).toFixed(4):''})()"></div>
       <div class="field"><label>TPC (₹)</label><input id="pf-tpc" type="number" value="${p?.tpc||''}" placeholder="0"></div>
       <div class="field"><label>Civil Cost (₹)</label><input id="pf-civil" type="number" value="${p?.civilCost||''}" placeholder="0"></div>
       <div class="field"><label>LA Cost (₹)</label><input id="pf-lacost" type="number" value="${p?.laCost||''}" placeholder="0"></div>
       <div class="field"><label>Total Land Required (Ha)</label><input id="pf-total" type="number" value="${p?.totalLand||''}" placeholder="0.00" oninput="(function(){var t=parseFloat(document.getElementById('pf-total').value)||0;var a=parseFloat(document.getElementById('pf-avail').value)||0;document.getElementById('pf-la').value=t>0||a>0?(t-a).toFixed(4):''})()"></div>
       <div class="field"><label>Available Land (Ha)</label><input id="pf-avail" type="number" value="${p?.availLand||''}" placeholder="0.00" oninput="(function(){var t=parseFloat(document.getElementById('pf-total').value)||0;var a=parseFloat(document.getElementById('pf-avail').value)||0;document.getElementById('pf-la').value=t>0||a>0?(t-a).toFixed(4):''})()"></div>
-      <div class="field"><label>Land to be Acquired (Ha) <span style="font-size:10px;color:#4ade80;font-weight:400">(auto = Total − Available)</span></label><input id="pf-la" type="number" value="${p?.laRequired||''}" placeholder="Auto-calculated" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4);color:var(--text)" readonly></div>
-      <div class="field"><label>Length Affected due to LA (km)</label><input id="pf-laLen" type="number" value="${p?.laLength||''}" placeholder="0.00"></div>
+      <div class="field"><label>Land to be Acquired as per TAFS (Ha) <span style="font-size:10px;color:#4ade80;font-weight:400">(auto = Total − Available)</span></label><input id="pf-la" type="number" value="${p?.laRequired||''}" placeholder="Auto-calculated" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4);color:var(--text)" readonly></div>
+      <div class="field"><label>Length Affected due to LA as per TAFS (km)</label><input id="pf-latafs" type="number" value="${p?.laLengthTafs||''}" placeholder="0.00" oninput="(function(){var l=parseFloat(document.getElementById('pf-len').value)||0;var la=parseFloat(document.getElementById('pf-latafs').value)||0;document.getElementById('pf-lavail-tafs').value=l>0||la>0?(l-la).toFixed(4):''})()"></div>
+      <div class="field"><label>Project Length Available as per TAFS (km) <span style="font-size:10px;color:#4ade80;font-weight:400">(auto = Project Length − Affected)</span></label><input id="pf-lavail-tafs" type="number" value="${p?.laLengthTafs&&p?.length?(parseFloat(p.length)-parseFloat(p.laLengthTafs)).toFixed(4):''}" placeholder="Auto-calculated" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)" readonly></div>
     </div>
   `, [
     { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
@@ -1334,7 +1335,7 @@ function saveProject(id) {
     totalLand: document.getElementById('pf-total').value,
     availLand: document.getElementById('pf-avail').value,
     laRequired: document.getElementById('pf-la').value,
-    laLength: document.getElementById('pf-laLen').value,
+    laLengthTafs: document.getElementById('pf-latafs').value,
   };
   if (id) {
     const p = DB.projects.find(x => x.id === id);
@@ -1768,6 +1769,18 @@ function renderLATabs() {
 // ─────────────────────────────────────────────────────
 // STAGE 1: 3a (lowercase) — CALA Appointment Notification
 // ─────────────────────────────────────────────────────
+
+// Helper: get project length for a given projectId
+function getProjectLength(projectId) {
+  const p = DB.projects.find(x => x.id === projectId);
+  return parseFloat(p?.length)||0;
+}
+function calcAvailable(inputId, resultId, projectId) {
+  const l = getProjectLength(projectId);
+  const la = parseFloat(document.getElementById(inputId)?.value)||0;
+  const el = document.getElementById(resultId);
+  if (el) el.value = l > 0 ? (l - la).toFixed(4) : '';
+}
 function renderTab_lower3a() {
   const existing = DB.process3a.find(x =>
     x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'lower3a');
@@ -1886,9 +1899,20 @@ function renderTab_upper3A(hasLower3a) {
         <div class="alert alert-info" style="margin-bottom:18px">
           ℹ <strong>3A</strong> (Section 3A) records the specific gut numbers and their areas proposed for acquisition.
         </div>
-        <div class="field" style="max-width:300px">
-          <label class="required">3A Notification Date</label>
-          <input type="date" id="f_up3A_date" value="${existing?.notifDate||''}">
+        <div class="form-grid cols-2" style="max-width:700px">
+          <div class="field">
+            <label class="required">3A Notification Date</label>
+            <input type="date" id="f_up3A_date" value="${existing?.notifDate||''}">
+          </div>
+          <div></div>
+          <div class="field">
+            <label>Length Affected due to LA as per 3A (km)</label>
+            <input type="number" id="f_up3A_lalen" value="${existing?.laLength3a||''}" placeholder="0.00" oninput="calcAvailable('f_up3A_lalen','f_up3A_lavail',${laState.projectId})">
+          </div>
+          <div class="field">
+            <label>Project Length Available as per 3A (km) <span style="font-size:10px;color:#4ade80">(auto)</span></label>
+            <input type="number" id="f_up3A_lavail" value="${existing?.laLength3a&&DB.projects.find(p=>p.id===laState.projectId)?.length?(parseFloat(DB.projects.find(p=>p.id===laState.projectId).length)-parseFloat(existing.laLength3a)).toFixed(4):''}" placeholder="Auto-calculated" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)" readonly>
+          </div>
         </div>
         <div class="divider"></div>
         <div class="flex justify-between items-center mb-4">
@@ -1925,12 +1949,13 @@ function renderTab_upper3A(hasLower3a) {
     if (!guts.length) { showToast('Add at least one gut number.', 'error'); return; }
     if (existing) {
       existing.notifDate = date;
+      existing.laLength3a = document.getElementById('f_up3A_lalen')?.value||'';
       DB.process3aGuts = DB.process3aGuts.filter(g => g.process3aId !== existing.id);
       guts.forEach(g => DB.process3aGuts.push({ id: newId(), process3aId: existing.id, gutNumber: g.num, area: g.area, landType: g.landType || 'Private Land' }));
     } else {
       const id = newId();
       DB.process3a.push({ id, projectId: laState.projectId, villageId: laState.villageId,
-        type: 'upper3A', notifDate: date });
+        type: 'upper3A', notifDate: date, laLength3a: document.getElementById('f_up3A_lalen')?.value||'' });
       guts.forEach(g => DB.process3aGuts.push({ id: newId(), process3aId: id, gutNumber: g.num, area: g.area, landType: g.landType || 'Private Land' }));
     }
     saveDB(); showToast('3A Details saved! Now proceed to JM.', 'success'); renderLATabs();
@@ -1981,6 +2006,22 @@ function collectGutRows(prefix) {
   return results;
 }
 
+// Helper for new village gut rows in JM
+let _nvGutCount = {};
+function addNewVilGutRow(vilIdx) {
+  if (!_nvGutCount[vilIdx]) _nvGutCount[vilIdx] = 0;
+  const i = _nvGutCount[vilIdx]++;
+  const tbody = document.getElementById('jm-nv-guts-' + vilIdx);
+  if (!tbody) return;
+  const tr = document.createElement('tr');
+  tr.id = 'jm-nv-gut-' + vilIdx + '-' + i;
+  tr.innerHTML = '<td style="padding:4px 6px;border:1px solid var(--border)"><input class="inlineInput" id="jm-nv-gut-num-' + vilIdx + '-' + i + '" placeholder="Gut No." style="width:90px"></td>'
+    + '<td style="padding:4px 6px;border:1px solid var(--border)"><input type="number" class="inlineInput" id="jm-nv-gut-area-' + vilIdx + '-' + i + '" placeholder="0.00" style="width:80px"></td>'
+    + '<td style="padding:4px 6px;border:1px solid var(--border)"><select class="inlineInput" id="jm-nv-gut-type-' + vilIdx + '-' + i + '" style="min-width:130px"><option value="Private Land">🏠 Private</option><option value="Government Land">🏛 Govt</option></select></td>'
+    + '<td style="padding:4px 6px"><button class="btn btn-danger btn-sm" onclick="document.getElementById('jm-nv-gut-' + vilIdx + '-' + i + '').remove()">✕</button></td>';
+  tbody.appendChild(tr);
+}
+
 // ─────────────────────────────────────────────────────
 // STAGE 3: JM — Joint Measurement
 // ─────────────────────────────────────────────────────
@@ -2016,6 +2057,14 @@ function renderTab_JM(hasUpper3A) {
             <input type="date" id="fjm_date" value="${existing?.jmDate||''}"></div>
           <div class="field"><label>JM Sheet Received Date</label>
             <input type="date" id="fjm_sheet" value="${existing?.sheetDate||''}"></div>
+          <div class="field">
+            <label>Length Affected due to LA as per JM (km)</label>
+            <input type="number" id="fjm_lalen" value="${existing?.laLengthJm||''}" placeholder="0.00" oninput="calcAvailable('fjm_lalen','fjm_lavail',${laState.projectId})">
+          </div>
+          <div class="field">
+            <label>Project Length Available as per JM (km) <span style="font-size:10px;color:#4ade80">(auto)</span></label>
+            <input type="number" id="fjm_lavail" value="${existing?.laLengthJm&&DB.projects.find(p=>p.id===laState.projectId)?.length?(parseFloat(DB.projects.find(p=>p.id===laState.projectId).length)-parseFloat(existing.laLengthJm)).toFixed(4):''}" placeholder="Auto-calculated" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)" readonly>
+          </div>
         </div>
         <div class="divider"></div>
         <h4 class="mb-4">Modified Area After JM (per Gut)</h4>
@@ -2066,6 +2115,15 @@ function renderTab_JM(hasUpper3A) {
         <div class="mt-4 flex gap-2">
           <button class="btn btn-secondary btn-sm" id="jm-add-gut-btn">➕ Add New Gut Number</button>
         </div>
+        <div class="divider"></div>
+        <h4 class="mb-4" style="color:#f59e0b">➕ New Villages Found During JM</h4>
+        <div class="alert alert-warning" style="margin-bottom:12px;font-size:12px">
+          ⚠ If JM reveals a completely new village not in the original 3A, add it here. A new 3A (Add) must be published before 3D can proceed for these villages.
+        </div>
+        <div id="jm-new-villages-body"></div>
+        <div class="mt-2">
+          <button class="btn btn-secondary btn-sm" id="jm-add-village-btn">🏘 Add New Village</button>
+        </div>
         <div class="mt-4">
           <button class="btn btn-primary" id="saveJM_btn">💾 Save JM Details</button>
         </div>
@@ -2081,6 +2139,29 @@ function renderTab_JM(hasUpper3A) {
 
   // Add new gut row button
   let newGutCount = 0;
+  // New Village button
+  let _newVilCount = 0;
+  document.getElementById('jm-add-village-btn').addEventListener('click', function() {
+    const idx = _newVilCount++;
+    const body = document.getElementById('jm-new-villages-body');
+    const div = document.createElement('div');
+    div.id = 'jm-newvil-' + idx;
+    div.style.cssText = 'border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:14px;margin-bottom:12px;background:rgba(245,158,11,0.05)';
+    div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+      + '<strong style="color:#f59e0b">New Village #' + (idx+1) + '</strong>'
+      + '<button class="btn btn-danger btn-sm" onclick="document.getElementById('jm-newvil-' + idx + '').remove()">✕ Remove</button>'
+      + '</div>'
+      + '<div class="form-grid cols-2" style="margin-bottom:10px">'
+      + '<div class="field" style="margin:0"><label>Village Name</label><input id="jm-nv-name-' + idx + '" placeholder="Village name" style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text)"></div>'
+      + '<div class="field" style="margin:0"><label>Taluka</label><input id="jm-nv-taluka-' + idx + '" placeholder="Taluka name" style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text)"></div>'
+      + '</div>'
+      + '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="padding:5px 8px;font-size:11px;background:var(--card);text-align:left">Gut No.</th><th style="padding:5px 8px;font-size:11px;background:var(--card)">Area (Ha)</th><th style="padding:5px 8px;font-size:11px;background:var(--card)">Land Type</th><th></th></tr></thead>'
+      + '<tbody id="jm-nv-guts-' + idx + '"></tbody></table>'
+      + '<button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="addNewVilGutRow(' + idx + ')">+ Add Gut</button>';
+    body.appendChild(div);
+    addNewVilGutRow(idx);
+  });
+
   document.getElementById('jm-add-gut-btn').addEventListener('click', function() {
     const idx = 'n' + (newGutCount++);
     const tbody = document.getElementById('jm-gut-tbody');
@@ -2104,6 +2185,7 @@ function renderTab_JM(hasUpper3A) {
     const jmDate = document.getElementById('fjm_date').value;
     if (!jmDate) { showToast('JM Date is required.', 'error'); return; }
     const sheetDate = document.getElementById('fjm_sheet').value;
+    const laLengthJm = document.getElementById('fjm_lalen')?.value||'';
 
     // Collect all gut rows
     const allRows = document.querySelectorAll('#jm-gut-tbody tr');
@@ -2140,12 +2222,12 @@ function renderTab_JM(hasUpper3A) {
 
     // Save normal JM record
     if (existing) {
-      existing.jmDate = jmDate; existing.sheetDate = sheetDate;
+      existing.jmDate = jmDate; existing.sheetDate = sheetDate; existing.laLengthJm = laLengthJm;
       DB.processJMGuts = DB.processJMGuts.filter(g => g.processJMId !== existing.id);
       normalGuts.forEach(g => DB.processJMGuts.push({ id: newId(), processJMId: existing.id, gutNumber: g.gutNumber, modArea: g.modArea }));
     } else {
       const id = newId();
-      DB.processJM.push({ id, projectId: laState.projectId, villageId: laState.villageId, jmDate, sheetDate });
+      DB.processJM.push({ id, projectId: laState.projectId, villageId: laState.villageId, jmDate, sheetDate, laLengthJm });
       normalGuts.forEach(g => DB.processJMGuts.push({ id: newId(), processJMId: id, gutNumber: g.gutNumber, modArea: g.modArea }));
     }
 
@@ -2201,6 +2283,68 @@ function renderTab_JM(hasUpper3A) {
 
       saveDB();
       showToast('✅ JM saved! Additional Area auto-created for ' + addlVilName + '.', 'success');
+    }
+
+    // Handle completely new villages found during JM
+    const newVilDivs = document.querySelectorAll('[id^="jm-newvil-"]');
+    newVilDivs.forEach(function(div) {
+      const idx = div.id.replace('jm-newvil-','');
+      const vilName = document.getElementById('jm-nv-name-' + idx)?.value.trim();
+      const vilTaluka = document.getElementById('jm-nv-taluka-' + idx)?.value.trim();
+      if (!vilName) return;
+
+      // Create new village
+      let newVil = DB.villages.find(v => v.projectId === laState.projectId && v.name === vilName);
+      if (!newVil) {
+        const newVilId = newId();
+        DB.villages.push({ id: newVilId, projectId: laState.projectId, name: vilName, taluka: vilTaluka||'', isAddl: true });
+        newVil = DB.villages.find(v => v.id === newVilId);
+      }
+
+      // Collect guts for this new village
+      const nvGuts = [];
+      const base3a = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'lower3a');
+      let gi = 0;
+      while (true) {
+        const numEl = document.getElementById('jm-nv-gut-num-' + idx + '-' + gi);
+        if (!numEl && gi > 30) break;
+        if (numEl && numEl.value.trim()) {
+          const areaEl = document.getElementById('jm-nv-gut-area-' + idx + '-' + gi);
+          const typeEl = document.getElementById('jm-nv-gut-type-' + idx + '-' + gi);
+          nvGuts.push({ gutNumber: numEl.value.trim(), modArea: areaEl?.value||'', landType: typeEl?.value||'Private Land' });
+        }
+        gi++;
+      }
+      if (!nvGuts.length) return;
+
+      // Copy 3a to new village
+      if (base3a && !DB.process3a.find(x => x.villageId === newVil.id && x.projectId === laState.projectId && x.type === 'lower3a')) {
+        DB.process3a.push({ id: newId(), projectId: laState.projectId, villageId: newVil.id,
+          type: 'lower3a', notifDate: base3a.notifDate, calaPost: base3a.calaPost, calaName: base3a.calaName, calaMobile: base3a.calaMobile, isAdditional: true });
+      }
+
+      // Create 3A(Add) for new village — needs to be published separately before 3D
+      if (!DB.process3a.find(x => x.villageId === newVil.id && x.projectId === laState.projectId && x.type === 'upper3A')) {
+        const addl3AId = newId();
+        DB.process3a.push({ id: addl3AId, projectId: laState.projectId, villageId: newVil.id, type: 'upper3A', notifDate: '', isAdditional: true });
+        nvGuts.forEach(function(g) {
+          DB.process3aGuts.push({ id: newId(), process3aId: addl3AId, gutNumber: g.gutNumber, area: g.modArea, landType: g.landType });
+        });
+      }
+
+      // Create JM for new village
+      if (!DB.processJM.find(x => x.villageId === newVil.id && x.projectId === laState.projectId)) {
+        const newJMId = newId();
+        DB.processJM.push({ id: newJMId, projectId: laState.projectId, villageId: newVil.id, jmDate, sheetDate, laLengthJm });
+        nvGuts.forEach(function(g) {
+          DB.processJMGuts.push({ id: newId(), processJMId: newJMId, gutNumber: g.gutNumber, modArea: g.modArea });
+        });
+      }
+    });
+
+    saveDB();
+    if (newVilDivs.length > 0) {
+      showToast('✅ New villages created! Enter 3A (Add) notification before proceeding to 3D.', 'success');
     } else {
       // Clean up any existing Add village for this village if no more addl guts
       const baseVillage = DB.villages.find(v => v.id === laState.villageId);
@@ -2211,7 +2355,6 @@ function renderTab_JM(hasUpper3A) {
         DB.process3a = DB.process3a.filter(x => x.villageId !== addlVil.id);
         DB.villages  = DB.villages.filter(v => v.id !== addlVil.id);
       }
-      saveDB();
       showToast('JM Details saved! Now proceed to 3D.', 'success');
     }
     renderLATabs();
@@ -2286,9 +2429,20 @@ function renderTab_3D(hasJM) {
         </div>
       </div>
       <div class="panel-body">
-        <div class="field" style="max-width:300px">
-          <label class="required">3D Notification Date</label>
-          <input type="date" id="f3d_date" value="${existing?.notifDate||''}">
+        <div class="form-grid cols-2" style="max-width:700px">
+          <div class="field">
+            <label class="required">3D Notification Date</label>
+            <input type="date" id="f3d_date" value="${existing?.notifDate||''}">
+          </div>
+          <div></div>
+          <div class="field">
+            <label>Length Affected after this 3D Declaration (km)</label>
+            <input type="number" id="f3d_lalen" value="${existing?.laLength3d||''}" placeholder="0.00" oninput="calcAvailable('f3d_lalen','f3d_lavail',${laState.projectId})">
+          </div>
+          <div class="field">
+            <label>Project Length Available after 3D (km) <span style="font-size:10px;color:#4ade80">(auto)</span></label>
+            <input type="number" id="f3d_lavail" value="${existing?.laLength3d&&DB.projects.find(p=>p.id===laState.projectId)?.length?(parseFloat(DB.projects.find(p=>p.id===laState.projectId).length)-parseFloat(existing.laLength3d)).toFixed(4):''}" placeholder="Auto-calculated" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)" readonly>
+          </div>
         </div>
         <div class="divider"></div>
         <h4 class="mb-4">Gut-wise Beneficiary Details</h4>
@@ -2321,18 +2475,19 @@ function renderTab_3D(hasJM) {
   document.getElementById('save3D_btn').addEventListener('click', function() {
     const date = document.getElementById('f3d_date').value;
     if (!date) { showToast('3D Notification Date is required.', 'error'); return; }
+    const laLength3d = document.getElementById('f3d_lalen')?.value||'';
     const guts = jmGuts.map((g, i) => {
       const el = document.getElementById('d3_ben_' + i);
       const lt = el ? el.getAttribute('data-landtype') : 'Private Land';
       return { gutNumber: g.gutNumber, area: g.modArea, beneficiary: el ? el.value : '', landType: lt || 'Private Land' };
     });
     if (existing) {
-      existing.notifDate = date;
+      existing.notifDate = date; existing.laLength3d = laLength3d;
       DB.process3DGuts = DB.process3DGuts.filter(g => g.process3DId !== existing.id);
       guts.forEach(g => DB.process3DGuts.push({ id: newId(), process3DId: existing.id, ...g }));
     } else {
       const id = newId();
-      DB.process3D.push({ id, projectId: laState.projectId, villageId: laState.villageId, notifDate: date });
+      DB.process3D.push({ id, projectId: laState.projectId, villageId: laState.villageId, notifDate: date, laLength3d });
       guts.forEach(g => DB.process3DGuts.push({ id: newId(), process3DId: id, ...g }));
     }
     saveDB(); showToast('3D Declaration saved! Now proceed to 3G.', 'success'); renderLATabs();
@@ -2409,9 +2564,20 @@ function renderTab_3G(has3D) {
           The LA process for this village is complete at <strong>Stage 4 (3D)</strong>.</p>
         </div>
         ` : `
-        <div class="field" style="max-width:300px">
-          <label class="required">3G Notification Date</label>
-          <input type="date" id="f3g_date" value="${existing?.notifDate||''}">
+        <div class="form-grid cols-2" style="max-width:700px">
+          <div class="field">
+            <label class="required">3G Notification Date</label>
+            <input type="date" id="f3g_date" value="${existing?.notifDate||''}">
+          </div>
+          <div></div>
+          <div class="field">
+            <label>Length Affected after this 3G Award (km)</label>
+            <input type="number" id="f3g_lalen" value="${existing?.laLength3g||''}" placeholder="0.00" oninput="calcAvailable('f3g_lalen','f3g_lavail',${laState.projectId})">
+          </div>
+          <div class="field">
+            <label>Project Length Available after 3G (km) <span style="font-size:10px;color:#4ade80">(auto)</span></label>
+            <input type="number" id="f3g_lavail" value="${existing?.laLength3g&&DB.projects.find(p=>p.id===laState.projectId)?.length?(parseFloat(DB.projects.find(p=>p.id===laState.projectId).length)-parseFloat(existing.laLength3g)).toFixed(4):''}" placeholder="Auto-calculated" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)" readonly>
+          </div>
         </div>
         <div class="divider"></div>
         <h4 class="mb-4">Compensation per Gut / Beneficiary <span style="font-size:12px;color:var(--text-dim);font-weight:400">(Private Land only)</span></h4>
@@ -2452,17 +2618,18 @@ function renderTab_3G(has3D) {
     document.getElementById('save3G_btn').addEventListener('click', function() {
       const date = document.getElementById('f3g_date').value;
       if (!date) { showToast('3G Notification Date is required.', 'error'); return; }
+      const laLength3g = document.getElementById('f3g_lalen')?.value||'';
       const guts = privateGuts.map((g, i) => {
         const el = document.getElementById('g3_comp_' + i);
         return { gutNumber: g.gutNumber, beneficiary: g.beneficiary, compensation: el ? el.value : '' };
       });
       if (existing) {
-        existing.notifDate = date;
+        existing.notifDate = date; existing.laLength3g = laLength3g;
         DB.process3GGuts = DB.process3GGuts.filter(g => g.process3GId !== existing.id);
         guts.forEach(g => DB.process3GGuts.push({ id: newId(), process3GId: existing.id, ...g }));
       } else {
         const id = newId();
-        DB.process3G.push({ id, projectId: laState.projectId, villageId: laState.villageId, notifDate: date });
+        DB.process3G.push({ id, projectId: laState.projectId, villageId: laState.villageId, notifDate: date, laLength3g });
         guts.forEach(g => DB.process3GGuts.push({ id: newId(), process3GId: id, ...g }));
       }
       saveDB(); showToast('3G Compensation saved! Process complete ✓', 'success'); renderLATabs();
