@@ -1148,12 +1148,12 @@ function renderDashboard() {
     <div class="stats-grid" style="grid-template-columns:repeat(6,1fr)">
       <div class="stat-card accent">
         <div class="label">Total Projects</div>
-        <div class="value">${myProjects.length}</div>
+        <div class="value" style="font-size:14px;white-space:nowrap">${myProjects.length}</div>
         <div class="sub">Active projects</div>
       </div>
       <div class="stat-card blue">
         <div class="label">3<span style="text-transform:lowercase">a</span> Notification</div>
-        <div class="value" style="font-size:22px">${uniqueCALA} CALA</div>
+        <div class="value" style="font-size:14px;white-space:nowrap">${uniqueCALA} CALA</div>
         <div style="font-size:13px;font-weight:500;color:#3b82f6;margin-top:2px">${total3aVillages} Villages</div>
         <div class="sub">CALA Notified</div>
       </div>
@@ -1191,19 +1191,52 @@ function renderDashboard() {
       <div class="panel-body">
         ${myProjects.length === 0 ? `<div class="empty-state"><div class="icon">📁</div><h3>No Projects Yet</h3><p>Projects will appear here once created.</p></div>` :
         `<div class="table-wrap"><table>
-          <thead><tr><th>Project Name</th><th>TAFS No.</th><th>Total Land (Ha)</th><th>LA Required (Ha)</th><th>Progress</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Project Name</th><th>TAFS No.</th><th>Total Land (Ha)</th><th>LA Required (Ha)</th><th>Progress (Area)</th><th>Progress (Length)</th><th>Actions</th></tr></thead>
           <tbody>${myProjects.map(p => {
-            const villages3a = DB.process3a.filter(x => x.projectId === p.id).map(x => x.villageId);
-            const villages3g = DB.process3G.filter(x => x.projectId === p.id).length;
-            const pct = villages3a.length ? Math.round((villages3g / villages3a.length) * 100) : 0;
+            // Latest Area for this project (village by village)
+            const pVils = DB.villages.filter(v => v.projectId === p.id);
+            let pLatestArea = 0;
+            pVils.forEach(function(v) {
+              const vjm = DB.processJM.find(x => x.villageId===v.id && x.projectId===p.id);
+              if (vjm) { pLatestArea += DB.processJMGuts.filter(g=>g.processJMId===vjm.id).reduce((s,g)=>s+(parseFloat(g.modArea)||0),0); return; }
+              const v3A = DB.process3a.find(x => x.villageId===v.id && x.projectId===p.id && x.type==='upper3A');
+              if (v3A) { pLatestArea += DB.process3aGuts.filter(g=>g.process3aId===v3A.id).reduce((s,g)=>s+(parseFloat(g.area)||0),0); return; }
+            });
+            if (pLatestArea === 0) pLatestArea = parseFloat(p.laRequired)||0;
+
+            // 3G area for this project
+            const p3GRecs = DB.process3G.filter(x => x.projectId===p.id);
+            const p3GArea = p3GRecs.reduce((sum,r) => sum + DB.process3GGuts.filter(g=>g.process3GId===r.id).reduce((s,g)=>s+(parseFloat(g.compensation)||0),0), 0);
+            const p3GHa   = p3GRecs.reduce((sum,r) => sum + DB.process3DGuts.filter(g=>g.process3DId===(DB.process3D.find(d=>d.villageId===r.villageId&&d.projectId===p.id)||{}).id).reduce((s,g)=>s+(parseFloat(g.area)||0),0), 0);
+            const pctArea = pLatestArea > 0 ? Math.min(100, Math.round((p3GHa / pLatestArea) * 100)) : 0;
+
+            // Latest available length for this project
+            const projLen = parseFloat(p.length)||0;
+            let pLatestLen = projLen; // start with full project length
+            // Get most recent length affected from any stage
+            const p3GRec = DB.process3G.find(x=>x.projectId===p.id);
+            const p3DRec = DB.process3D.find(x=>x.projectId===p.id);
+            const pJMRec = DB.processJM.find(x=>x.projectId===p.id);
+            const p3ARec = DB.process3a.find(x=>x.projectId===p.id&&x.type==='upper3A');
+            if (p3GRec?.laLength3g) pLatestLen = projLen - (parseFloat(p3GRec.laLength3g)||0);
+            else if (p3DRec?.laLength3d) pLatestLen = projLen - (parseFloat(p3DRec.laLength3d)||0);
+            else if (pJMRec?.laLengthJm) pLatestLen = projLen - (parseFloat(pJMRec.laLengthJm)||0);
+            else if (p3ARec?.laLength3a) pLatestLen = projLen - (parseFloat(p3ARec.laLength3a)||0);
+            else if (p.laLengthTafs) pLatestLen = projLen - (parseFloat(p.laLengthTafs)||0);
+            const pctLen = projLen > 0 ? Math.min(100, Math.round((pLatestLen / projLen) * 100)) : 0;
+
             return `<tr>
               <td><strong>${p.name}</strong></td>
               <td class="mono">${p.tafsNo}</td>
               <td class="mono">${p.totalLand}</td>
               <td class="mono">${p.laRequired}</td>
               <td style="min-width:120px">
-                <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-                <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${pct}% complete</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:${pctArea}%"></div></div>
+                <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${pctArea}% (3G/Latest)</div>
+              </td>
+              <td style="min-width:120px">
+                <div class="progress-bar"><div class="progress-fill" style="width:${pctLen}%;background:linear-gradient(90deg,#3b82f6,#60a5fa)"></div></div>
+                <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${pctLen}% (${pLatestLen.toFixed(2)}/${projLen} km)</div>
               </td>
               <td>
                 <div class="flex gap-2 flex-wrap">
