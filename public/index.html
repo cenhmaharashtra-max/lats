@@ -1211,26 +1211,21 @@ function renderDashboard() {
             const p3GHa   = p3GRecs.reduce((sum,r) => sum + DB.process3DGuts.filter(g=>g.process3DId===(DB.process3D.find(d=>d.villageId===r.villageId&&d.projectId===p.id)||{}).id).reduce((s,g)=>s+(parseFloat(g.area)||0),0), 0);
             const pctArea = pLatestArea > 0 ? Math.min(100, Math.round((p3GHa / pLatestArea) * 100)) : 0;
 
-            // Latest Available Length — village by village, same logic as Latest Area
+            // Latest Available Length — project level, most advanced stage with length entered
+            // 3D/3G length affected is per stage/village; take the most recently entered one
             const projLen = parseFloat(p.length)||0;
-            let pLatestLen = 0;
-            pVils.forEach(function(v) {
-              // 3G length for this village?
-              const v3G = DB.process3G.find(x=>x.villageId===v.id&&x.projectId===p.id);
-              if (v3G?.laLength3g) { pLatestLen += projLen - (parseFloat(v3G.laLength3g)||0); return; }
-              // 3D length?
-              const v3D = DB.process3D.find(x=>x.villageId===v.id&&x.projectId===p.id);
-              if (v3D?.laLength3d) { pLatestLen += projLen - (parseFloat(v3D.laLength3d)||0); return; }
-              // JM length?
-              const vJM = DB.processJM.find(x=>x.villageId===v.id&&x.projectId===p.id);
-              if (vJM?.laLengthJm) { pLatestLen += projLen - (parseFloat(vJM.laLengthJm)||0); return; }
-              // 3A length?
-              const v3A = DB.process3a.find(x=>x.villageId===v.id&&x.projectId===p.id&&x.type==='upper3A');
-              if (v3A?.laLength3a) { pLatestLen += projLen - (parseFloat(v3A.laLength3a)||0); return; }
-              // TAFS fallback
-              pLatestLen += projLen - (parseFloat(p.laLengthTafs)||0);
-            });
-            if (pVils.length === 0) pLatestLen = projLen - (parseFloat(p.laLengthTafs)||0);
+            let pLatestAffected = null;
+            // Check stages in reverse order: 3G → 3D → JM → 3A → TAFS
+            const any3G = DB.process3G.find(x=>x.projectId===p.id&&x.laLength3g);
+            const any3D = DB.process3D.find(x=>x.projectId===p.id&&x.laLength3d);
+            const anyJM = DB.processJM.find(x=>x.projectId===p.id&&x.laLengthJm);
+            const any3A = DB.process3a.find(x=>x.projectId===p.id&&x.type==='upper3A'&&x.laLength3a);
+            if (any3G) pLatestAffected = parseFloat(any3G.laLength3g)||0;
+            else if (any3D) pLatestAffected = parseFloat(any3D.laLength3d)||0;
+            else if (anyJM) pLatestAffected = parseFloat(anyJM.laLengthJm)||0;
+            else if (any3A) pLatestAffected = parseFloat(any3A.laLength3a)||0;
+            else if (p.laLengthTafs) pLatestAffected = parseFloat(p.laLengthTafs)||0;
+            const pLatestLen = pLatestAffected !== null ? projLen - pLatestAffected : projLen;
             const pctLen = projLen > 0 ? Math.min(100, Math.round((pLatestLen / projLen) * 100)) : 0;
 
             return `<tr>
