@@ -1096,13 +1096,14 @@ function renderDashboard() {
   const total3D = all3DRecs.reduce(function(sum, r){ return sum + DB.process3DGuts.filter(function(g){ return g.process3DId === r.id; }).reduce(function(s,g){ return s + (parseFloat(g.area)||0); }, 0); }, 0);
   const count3D = all3DRecs.length;
 
-  // 3G compensation total + village count
+  // 3G Ha total + compensation + village count
   const all3GRecs = DB.process3G.filter(function(x){ return myProjectIds.indexOf(x.projectId) !== -1; });
-  const total3G = all3GRecs.reduce(function(sum, r){ return sum + DB.process3GGuts.filter(function(g){ return g.process3GId === r.id; }).reduce(function(s,g){ return s + (parseFloat(g.compensation)||0); }, 0); }, 0);
+  const total3G = all3GRecs.reduce(function(sum, r){ return sum + DB.process3DGuts.filter(function(g){ return g.process3DId === DB.process3D.find(function(d){ return d.villageId===r.villageId && d.projectId===r.projectId; })?.id; }).reduce(function(s,g){ return s + (parseFloat(g.area)||0); }, 0); }, 0);
+  const totalComp3G = all3GRecs.reduce(function(sum, r){ return sum + DB.process3GGuts.filter(function(g){ return g.process3GId === r.id; }).reduce(function(s,g){ return s + (parseFloat(g.compensation)||0); }, 0); }, 0);
   const count3G = all3GRecs.length;
 
-  // totalComp same as total3G now (compensation sum)
-  const totalComp = total3G;
+  // totalComp for backward compat
+  const totalComp = totalComp3G;
 
   document.getElementById('page-content').innerHTML = `
     <div class="stats-grid" style="grid-template-columns:repeat(6,1fr)">
@@ -1118,23 +1119,23 @@ function renderDashboard() {
       </div>
       <div class="stat-card purple">
         <div class="label">3A Details</div>
-        <div class="value">${total3A.toFixed(2)} <span style="font-size:13px;font-weight:500">Ha</span></div>
-        <div class="sub">(${count3A} villages)</div>
+        <div class="value" style="font-size:20px">${total3A.toFixed(2)} Ha (${count3A} Villages)</div>
+        <div class="sub">Intention to Acquire Land</div>
       </div>
       <div class="stat-card orange">
         <div class="label">JM Completed</div>
-        <div class="value">${totalJM.toFixed(2)} <span style="font-size:13px;font-weight:500">Ha</span></div>
-        <div class="sub">(${countJM} villages)</div>
+        <div class="value" style="font-size:20px">${totalJM.toFixed(2)} Ha (${countJM} Villages)</div>
+        <div class="sub">Joint Measurement of Land</div>
       </div>
       <div class="stat-card green">
         <div class="label">3D Completed</div>
-        <div class="value">${total3D.toFixed(2)} <span style="font-size:13px;font-weight:500">Ha</span></div>
-        <div class="sub">Declaration of Acquisition (${count3D} vil)</div>
+        <div class="value" style="font-size:20px">${total3D.toFixed(2)} Ha (${count3D} Villages)</div>
+        <div class="sub">Declaration of Acquisition</div>
       </div>
       <div class="stat-card teal">
         <div class="label">3G Completed</div>
-        <div class="value">₹${total3G.toLocaleString('en-IN')}</div>
-        <div class="sub">Award Declared (${count3G} villages)</div>
+        <div class="value" style="font-size:20px">${total3G.toFixed(2)} Ha (₹${totalComp3G.toLocaleString('en-IN')})</div>
+        <div class="sub">Award Declared (${count3G} Villages)</div>
       </div>
     </div>
 
