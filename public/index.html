@@ -2155,7 +2155,7 @@ function renderTab_JM(hasUpper3A) {
     div.style.cssText = 'border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:14px;margin-bottom:12px;background:rgba(245,158,11,0.05)';
     div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
       + '<strong style="color:#f59e0b">New Village #' + (idx+1) + '</strong>'
-      + '<button class="btn btn-danger btn-sm" onclick="document.getElementById('jm-newvil-' + idx + '').remove()">✕ Remove</button>'
+      + '<button class="btn btn-danger btn-sm" onclick="this.closest(\'div\').remove()">✕ Remove</button>'
       + '</div>'
       + '<div class="form-grid cols-2" style="margin-bottom:10px">'
       + '<div class="field" style="margin:0"><label>Village Name</label><input id="jm-nv-name-' + idx + '" placeholder="Village name" style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text)"></div>'
