@@ -1100,6 +1100,36 @@ function renderDashboard() {
   const totalJM = allJMRecs.reduce(function(sum, r){ return sum + DB.processJMGuts.filter(function(g){ return g.processJMId === r.id; }).reduce(function(s,g){ return s + (parseFloat(g.modArea)||0); }, 0); }, 0);
   const countJM = allJMRecs.length;
 
+  // Latest Area to be Acquired — village by village: JM area > 3A area > TAFS laRequired
+  let latestArea = 0;
+  myVillages.forEach(function(v) {
+    // JM done for this village?
+    const vjm = DB.processJM.find(function(x){ return x.villageId===v.id && x.projectId===v.projectId; });
+    if (vjm) {
+      const vjmArea = DB.processJMGuts.filter(function(g){ return g.processJMId===vjm.id; }).reduce(function(s,g){ return s+(parseFloat(g.modArea)||0); }, 0);
+      latestArea += vjmArea;
+      return;
+    }
+    // 3A done for this village?
+    const v3A = DB.process3a.find(function(x){ return x.villageId===v.id && x.projectId===v.projectId && x.type==='upper3A'; });
+    if (v3A) {
+      const v3AArea = DB.process3aGuts.filter(function(g){ return g.process3aId===v3A.id; }).reduce(function(s,g){ return s+(parseFloat(g.area)||0); }, 0);
+      latestArea += v3AArea;
+      return;
+    }
+    // Fallback: TAFS laRequired of the project (proportional — just add project laRequired once per project)
+    // Already handled below per project
+  });
+  // Add TAFS area for projects that have NO villages with any 3A or JM
+  myProjects.forEach(function(p) {
+    const pVils = myVillages.filter(function(v){ return v.projectId===p.id; });
+    const hasAnyData = pVils.some(function(v){
+      return DB.processJM.some(function(x){ return x.villageId===v.id && x.projectId===p.id; }) ||
+             DB.process3a.some(function(x){ return x.villageId===v.id && x.projectId===p.id && x.type==='upper3A'; });
+    });
+    if (!hasAnyData) latestArea += parseFloat(p.laRequired)||0;
+  });
+
   // 3D Ha total + village count
   const all3DRecs = DB.process3D.filter(function(x){ return myProjectIds.indexOf(x.projectId) !== -1; });
   const total3D = all3DRecs.reduce(function(sum, r){ return sum + DB.process3DGuts.filter(function(g){ return g.process3DId === r.id; }).reduce(function(s,g){ return s + (parseFloat(g.area)||0); }, 0); }, 0);
@@ -1125,29 +1155,33 @@ function renderDashboard() {
         <div class="label">3<span style="text-transform:lowercase">a</span> Notification</div>
         <div class="value" style="font-size:22px">${uniqueCALA} CALA</div>
         <div style="font-size:13px;font-weight:500;color:#3b82f6;margin-top:2px">${total3aVillages} Villages</div>
-        <div class="sub">Notification Published</div>
+        <div class="sub">CALA Notified</div>
       </div>
       <div class="stat-card purple">
         <div class="label">3A Details</div>
-        <div class="value" style="font-size:22px">${total3A.toFixed(2)} Ha</div>
+        <div class="value" style="font-size:20px">${total3A.toFixed(2)} Ha / ${latestArea.toFixed(2)} Ha</div>
+        <div style="font-size:11px;font-weight:500;color:rgba(167,139,250,0.7);margin-top:1px">3A Area &nbsp;/&nbsp; Latest LA</div>
         <div style="font-size:13px;font-weight:500;color:#a78bfa;margin-top:2px">(${count3A} Villages)</div>
         <div class="sub">Intention to Acquire Land</div>
       </div>
       <div class="stat-card orange">
         <div class="label">JM Completed</div>
-        <div class="value" style="font-size:22px">${totalJM.toFixed(2)} Ha</div>
+        <div class="value" style="font-size:20px">${totalJM.toFixed(2)} Ha / ${latestArea.toFixed(2)} Ha</div>
+        <div style="font-size:11px;font-weight:500;color:rgba(251,146,60,0.7);margin-top:1px">JM Area &nbsp;/&nbsp; Latest LA</div>
         <div style="font-size:13px;font-weight:500;color:#fb923c;margin-top:2px">(${countJM} Villages)</div>
         <div class="sub">Joint Measurement of Land</div>
       </div>
       <div class="stat-card green">
         <div class="label">3D Completed</div>
-        <div class="value" style="font-size:22px">${total3D.toFixed(2)} Ha</div>
+        <div class="value" style="font-size:20px">${total3D.toFixed(2)} Ha / ${latestArea.toFixed(2)} Ha</div>
+        <div style="font-size:11px;font-weight:500;color:rgba(34,197,94,0.7);margin-top:1px">3D Area &nbsp;/&nbsp; Latest LA</div>
         <div style="font-size:13px;font-weight:500;color:#22c55e;margin-top:2px">(${count3D} Villages)</div>
         <div class="sub">Declaration of Acquisition</div>
       </div>
       <div class="stat-card teal">
         <div class="label">3G Completed</div>
-        <div class="value" style="font-size:22px">${total3G.toFixed(2)} Ha</div>
+        <div class="value" style="font-size:20px">${total3G.toFixed(2)} Ha / ${latestArea.toFixed(2)} Ha</div>
+        <div style="font-size:11px;font-weight:500;color:rgba(45,212,191,0.7);margin-top:1px">3G Area &nbsp;/&nbsp; Latest LA</div>
         <div style="font-size:13px;font-weight:500;color:#2dd4bf;margin-top:2px">(${count3G} Villages)</div>
         <div class="sub" style="margin-top:2px">₹${totalComp3G.toLocaleString('en-IN')}</div>
         <div class="sub">Award Declared</div>
