@@ -786,28 +786,34 @@ let currentUser = null;
 async function populateLoginDropdown() {
   const sel = document.getElementById('login-user');
   if (!sel) return;
-  try {
-    const res = await fetch('/api/auth/usernames', { credentials: 'include' });
-    if (!res.ok) return;
-    const users = await res.json();
-    sel.innerHTML = '<option value="">— Select Username —</option>';
-    const admin = users.find(u => u.username === 'CENH');
-    if (admin) {
-      const o = document.createElement('option');
-      o.value = admin.username;
-      o.textContent = admin.username + ' (Admin)';
-      sel.appendChild(o);
-    }
-    users.filter(u => u.role !== 'admin')
-      .sort((a,b) => a.username.localeCompare(b.username))
-      .forEach(u => {
+  // Retry up to 5 times with 1s delay (in case server is starting)
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const res = await fetch('/api/auth/usernames', { credentials: 'include' });
+      if (!res.ok) { await new Promise(r=>setTimeout(r,1000)); continue; }
+      const users = await res.json();
+      if (!users || !users.length) { await new Promise(r=>setTimeout(r,1000)); continue; }
+      sel.innerHTML = '<option value="">— Select Username —</option>';
+      const admin = users.find(u => u.username === 'CENH');
+      if (admin) {
         const o = document.createElement('option');
-        o.value = u.username;
-        o.textContent = u.username;
+        o.value = admin.username;
+        o.textContent = admin.username + ' (Admin)';
         sel.appendChild(o);
-      });
-  } catch(e) {
-    console.error('Could not load usernames:', e);
+      }
+      users.filter(u => u.role !== 'admin')
+        .sort((a,b) => a.username.localeCompare(b.username))
+        .forEach(u => {
+          const o = document.createElement('option');
+          o.value = u.username;
+          o.textContent = u.username;
+          sel.appendChild(o);
+        });
+      return; // success
+    } catch(e) {
+      console.error('Could not load usernames (attempt ' + (attempt+1) + '):', e);
+      await new Promise(r=>setTimeout(r,1000));
+    }
   }
 }
 
@@ -2018,7 +2024,7 @@ function addNewVilGutRow(vilIdx) {
   tr.innerHTML = '<td style="padding:4px 6px;border:1px solid var(--border)"><input class="inlineInput" id="jm-nv-gut-num-' + vilIdx + '-' + i + '" placeholder="Gut No." style="width:90px"></td>'
     + '<td style="padding:4px 6px;border:1px solid var(--border)"><input type="number" class="inlineInput" id="jm-nv-gut-area-' + vilIdx + '-' + i + '" placeholder="0.00" style="width:80px"></td>'
     + '<td style="padding:4px 6px;border:1px solid var(--border)"><select class="inlineInput" id="jm-nv-gut-type-' + vilIdx + '-' + i + '" style="min-width:130px"><option value="Private Land">🏠 Private</option><option value="Government Land">🏛 Govt</option></select></td>'
-    + '<td style="padding:4px 6px"><button class="btn btn-danger btn-sm" onclick="document.getElementById('jm-nv-gut-' + vilIdx + '-' + i + '').remove()">✕</button></td>';
+    + '<td style="padding:4px 6px"><button class="btn btn-danger btn-sm" onclick="this.closest(\'tr\').remove()">✕</button></td>';
   tbody.appendChild(tr);
 }
 
