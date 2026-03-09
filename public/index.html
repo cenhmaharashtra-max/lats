@@ -226,14 +226,14 @@ body {
 .stat-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 20px;
+  border-radius: 14px;
+  padding: 28px 24px;
   transition: background 0.15s;
 }
 .stat-card:hover { background: var(--card-hover); }
-.stat-card .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-.stat-card .value { font-size: 28px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
-.stat-card .sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+.stat-card .label { font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 12px; font-weight: 600; }
+.stat-card .value { font-size: 22px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
+.stat-card .sub { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
 .stat-card.accent .value { color: var(--accent); }
 .stat-card.green .value { color: var(--green); }
 .stat-card.blue .value { color: var(--blue); }
@@ -1192,7 +1192,7 @@ function renderDashboard() {
       <div class="panel-body">
         ${myProjects.length === 0 ? `<div class="empty-state"><div class="icon">📁</div><h3>No Projects Yet</h3><p>Projects will appear here once created.</p></div>` :
         `<div class="table-wrap"><table>
-          <thead><tr><th>Project Name</th><th>TAFS No.</th><th>Total Land (Ha)</th><th>LA Required (Ha)</th><th>Progress (Area)</th><th>Progress (Length)</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Project Name</th><th>TAFS No.</th><th>3A vs LA Req</th><th>JM vs Latest</th><th>3D vs Latest</th><th>Progress (Length)</th><th>Actions</th></tr></thead>
           <tbody>${myProjects.map(p => {
             // Latest Area for this project (village by village)
             const pVils = DB.villages.filter(v => v.projectId === p.id);
@@ -1205,9 +1205,24 @@ function renderDashboard() {
             });
             if (pLatestArea === 0) pLatestArea = parseFloat(p.laRequired)||0;
 
+            // 3A area for this project
+            const p3ARecs = DB.process3a.filter(x=>x.projectId===p.id&&x.type==='upper3A');
+            const p3AArea = p3ARecs.reduce((s,r)=>s+DB.process3aGuts.filter(g=>g.process3aId===r.id).reduce((ss,g)=>ss+(parseFloat(g.area)||0),0),0);
+            const laReq = parseFloat(p.laRequired)||0;
+            const pct3A = laReq > 0 ? Math.min(100, Math.round((p3AArea / laReq) * 100)) : 0;
+
+            // JM area for this project (excl addl guts)
+            const pJMRecs = DB.processJM.filter(x=>x.projectId===p.id);
+            const pJMArea = pJMRecs.reduce((s,r)=>s+DB.processJMGuts.filter(g=>g.processJMId===r.id&&!g.isAddl).reduce((ss,g)=>ss+(parseFloat(g.modArea)||0),0),0);
+            const pctJM = pLatestArea > 0 ? Math.min(100, Math.round((pJMArea / pLatestArea) * 100)) : 0;
+
+            // 3D area for this project
+            const p3DRecs = DB.process3D.filter(x=>x.projectId===p.id);
+            const p3DArea = p3DRecs.reduce((s,r)=>s+DB.process3DGuts.filter(g=>g.process3DId===r.id).reduce((ss,g)=>ss+(parseFloat(g.area)||0),0),0);
+            const pct3D = pLatestArea > 0 ? Math.min(100, Math.round((p3DArea / pLatestArea) * 100)) : 0;
+
             // 3G area for this project
             const p3GRecs = DB.process3G.filter(x => x.projectId===p.id);
-            const p3GArea = p3GRecs.reduce((sum,r) => sum + DB.process3GGuts.filter(g=>g.process3GId===r.id).reduce((s,g)=>s+(parseFloat(g.compensation)||0),0), 0);
             const p3GHa   = p3GRecs.reduce((sum,r) => sum + DB.process3DGuts.filter(g=>g.process3DId===(DB.process3D.find(d=>d.villageId===r.villageId&&d.projectId===p.id)||{}).id).reduce((s,g)=>s+(parseFloat(g.area)||0),0), 0);
             const pctArea = pLatestArea > 0 ? Math.min(100, Math.round((p3GHa / pLatestArea) * 100)) : 0;
 
@@ -1231,11 +1246,17 @@ function renderDashboard() {
             return `<tr>
               <td><strong>${p.name}</strong></td>
               <td class="mono">${p.tafsNo}</td>
-              <td class="mono">${p.totalLand}</td>
-              <td class="mono">${p.laRequired}</td>
-              <td style="min-width:120px">
-                <div class="progress-bar"><div class="progress-fill" style="width:${pctArea}%"></div></div>
-                <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${pctArea}% (3G/Latest)</div>
+              <td style="min-width:110px">
+                <div class="progress-bar"><div class="progress-fill" style="width:${pct3A}%;background:linear-gradient(90deg,#a78bfa,#c4b5fd)"></div></div>
+                <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${pct3A}% (${p3AArea.toFixed(2)}/${laReq} Ha)</div>
+              </td>
+              <td style="min-width:110px">
+                <div class="progress-bar"><div class="progress-fill" style="width:${pctJM}%;background:linear-gradient(90deg,#fb923c,#fdba74)"></div></div>
+                <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${pctJM}% (${pJMArea.toFixed(2)}/${pLatestArea.toFixed(2)} Ha)</div>
+              </td>
+              <td style="min-width:110px">
+                <div class="progress-bar"><div class="progress-fill" style="width:${pct3D}%;background:linear-gradient(90deg,#22c55e,#86efac)"></div></div>
+                <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${pct3D}% (${p3DArea.toFixed(2)}/${pLatestArea.toFixed(2)} Ha)</div>
               </td>
               <td style="min-width:120px">
                 <div class="progress-bar"><div class="progress-fill" style="width:${pctLen}%;background:linear-gradient(90deg,#3b82f6,#60a5fa)"></div></div>
@@ -1302,17 +1323,47 @@ function renderProjects() {
         ${DB.projects.length === 0
           ? `<div class="empty-state"><div class="icon">📁</div><h3>No Projects Created</h3><p>Create your first project using the button above.</p></div>`
           : `<div class="table-wrap"><table>
-              <thead><tr><th>#</th><th>Project Name</th><th>TAFS No.</th><th>Length</th><th>TPC</th><th>LA Cost</th><th>Total Land (Ha)</th><th>LA Required (Ha)</th><th>Actions</th></tr></thead>
+              <thead><tr><th>#</th><th>Project Name</th><th>TAFS No.</th><th>Length</th><th>TPC</th><th>LA Cost</th><th>3A vs LA Req</th><th>JM vs Latest</th><th>3D vs Latest</th><th>Actions</th></tr></thead>
               <tbody>
-                ${DB.projects.map((p, i) => `<tr>
+                ${DB.projects.map((p, i) => {
+                  const s3ARecs = DB.process3a.filter(x=>x.projectId===p.id&&x.type==='upper3A');
+                  const s3AArea = s3ARecs.reduce((s,r)=>s+DB.process3aGuts.filter(g=>g.process3aId===r.id).reduce((ss,g)=>ss+(parseFloat(g.area)||0),0),0);
+                  const sLaReq = parseFloat(p.laRequired)||0;
+                  const sPct3A = sLaReq > 0 ? Math.min(100,Math.round((s3AArea/sLaReq)*100)) : 0;
+                  const sVils = DB.villages.filter(v=>v.projectId===p.id);
+                  let sLatest = 0;
+                  sVils.forEach(function(v){
+                    const vj=DB.processJM.find(x=>x.villageId===v.id&&x.projectId===p.id);
+                    if(vj){sLatest+=DB.processJMGuts.filter(g=>g.processJMId===vj.id&&!g.isAddl).reduce((s,g)=>s+(parseFloat(g.modArea)||0),0);return;}
+                    const v3=DB.process3a.find(x=>x.villageId===v.id&&x.projectId===p.id&&x.type==='upper3A');
+                    if(v3){sLatest+=DB.process3aGuts.filter(g=>g.process3aId===v3.id).reduce((s,g)=>s+(parseFloat(g.area)||0),0);return;}
+                  });
+                  if(sLatest===0) sLatest=sLaReq;
+                  const sJMRecs = DB.processJM.filter(x=>x.projectId===p.id);
+                  const sJMArea = sJMRecs.reduce((s,r)=>s+DB.processJMGuts.filter(g=>g.processJMId===r.id&&!g.isAddl).reduce((ss,g)=>ss+(parseFloat(g.modArea)||0),0),0);
+                  const sPctJM = sLatest > 0 ? Math.min(100,Math.round((sJMArea/sLatest)*100)) : 0;
+                  const s3DRecs = DB.process3D.filter(x=>x.projectId===p.id);
+                  const s3DArea = s3DRecs.reduce((s,r)=>s+DB.process3DGuts.filter(g=>g.process3DId===r.id).reduce((ss,g)=>ss+(parseFloat(g.area)||0),0),0);
+                  const sPct3D = sLatest > 0 ? Math.min(100,Math.round((s3DArea/sLatest)*100)) : 0;
+                  return `<tr>
                   <td class="mono">${i+1}</td>
                   <td><strong>${p.name}</strong></td>
                   <td class="mono">${p.tafsNo || p.tafs || ''}</td>
                   <td class="mono">${p.length || p.len || ''} km</td>
                   <td class="mono">₹${Number(p.tpc||0).toLocaleString('en-IN')}</td>
                   <td class="mono">₹${Number(p.laCost||0).toLocaleString('en-IN')}</td>
-                  <td class="mono">${p.totalLand || ''}</td>
-                  <td class="mono">${p.laRequired || p.laReq || ''}</td>
+                  <td style="min-width:110px">
+                    <div class="progress-bar"><div class="progress-fill" style="width:${sPct3A}%;background:linear-gradient(90deg,#a78bfa,#c4b5fd)"></div></div>
+                    <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${sPct3A}% (${s3AArea.toFixed(2)}/${sLaReq} Ha)</div>
+                  </td>
+                  <td style="min-width:110px">
+                    <div class="progress-bar"><div class="progress-fill" style="width:${sPctJM}%;background:linear-gradient(90deg,#fb923c,#fdba74)"></div></div>
+                    <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${sPctJM}% (${sJMArea.toFixed(2)}/${sLatest.toFixed(2)} Ha)</div>
+                  </td>
+                  <td style="min-width:110px">
+                    <div class="progress-bar"><div class="progress-fill" style="width:${sPct3D}%;background:linear-gradient(90deg,#22c55e,#86efac)"></div></div>
+                    <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${sPct3D}% (${s3DArea.toFixed(2)}/${sLatest.toFixed(2)} Ha)</div>
+                  </td>
                   <td>
                     <div class="flex gap-2">
                       <button class="btn btn-secondary btn-sm proj-edit-btn" data-pid="${p.id}">Edit</button>
@@ -1320,7 +1371,8 @@ function renderProjects() {
                       <button class="btn btn-danger btn-sm proj-del-btn" data-pid="${p.id}">Delete</button>
                     </div>
                   </td>
-                </tr>`).join('')}
+                </tr>`;
+                }).join('')}
               </tbody>
             </table></div>`}
       </div>
