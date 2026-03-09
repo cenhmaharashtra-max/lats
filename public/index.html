@@ -1806,9 +1806,7 @@ function renderLATabs() {
           ${locked ? '🔒 ' : ''}${s.label}
         </div>`;
       }).join('')}
-      <div class="tab ${laState.tab === 'addl' ? 'active' : ''}" data-tab="addl" data-allowed="true" data-prereq="" style="cursor:pointer;">
-        Additional Area
-      </div>
+
     </div>
 
     <div id="la-tab-content"></div>
@@ -1835,7 +1833,6 @@ function renderLATabs() {
   else if (laState.tab === 'jm')      renderTab_JM(hasUpper3A);
   else if (laState.tab === '3d')      renderTab_3D(hasJM);
   else if (laState.tab === '3g')      renderTab_3G(has3D);
-  else if (laState.tab === 'addl')    renderTab_Addl();
 }
 
 // ─────────────────────────────────────────────────────
@@ -2780,91 +2777,7 @@ function renderTab_3G(has3D) {
 }
 
 // ── Additional Area ──
-function renderTab_Addl() {
-  document.getElementById('la-tab-content').innerHTML = `
-    <div class="alert alert-info">ℹ <strong>Additional Area Process:</strong> For land discovered during JM that had no prior 3a notification. Workflow: 3a → 3A → 3D (JM skipped) → 3G.</div>
-    <div class="panel">
-      <div class="panel-header"><h3>Additional Area — Entry</h3></div>
-      <div class="panel-body">
-        <div class="field" style="max-width:300px"><label class="required">3a/3A Notification Date</label><input type="date" id="addl-date"></div>
-        <div class="divider"></div>
-        <div class="flex justify-between items-center mb-4">
-          <h4>Additional Gut Numbers</h4>
-          <button class="btn btn-secondary btn-sm" id="addlAddBtn">+ Add Gut</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>#</th><th>Gut Number</th><th>Area (Ha)</th><th>Beneficiary Name</th><th>Compensation (₹)</th><th></th></tr></thead>
-            <tbody id="addl-guts-body">
-              <tr id="no-addl-guts"><td colspan="6" style="text-align:center;color:var(--text-dim);padding:20px">Click "+ Add Gut" to add additional area records.</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="mt-4">
-          <button class="btn btn-primary" id="saveAddlBtn">💾 Save Additional Area</button>
-        </div>
-      </div>
-    </div>
-  `;
-  window._addlGutCount = 0;
 
-  document.getElementById('addlAddBtn').addEventListener('click', function() {
-    document.getElementById('no-addl-guts')?.remove();
-    const i = window._addlGutCount++;
-    document.getElementById('addl-guts-body').insertAdjacentHTML('beforeend',
-      `<tr id="addl-gut-${i}">
-        <td class="mono">${i+1}</td>
-        <td><input class="inlineInput" id="addl-num-${i}" placeholder="Gut No." style="width:100px"></td>
-        <td><input type="number" class="inlineInput" id="addl-area-${i}" placeholder="0.00" style="width:90px"></td>
-        <td><input class="inlineInput" id="addl-ben-${i}" placeholder="Beneficiary" style="min-width:180px"></td>
-        <td><input type="number" class="inlineInput" id="addl-comp-${i}" placeholder="0.00" style="width:120px"></td>
-        <td><button class="btn btn-danger btn-sm" onclick="document.getElementById('addl-gut-${i}').remove()">✕</button></td>
-      </tr>`);
-  });
-
-  document.getElementById('saveAddlBtn').addEventListener('click', function() {
-    const date = document.getElementById('addl-date').value;
-    if (!date) { showToast('Notification date required.', 'error'); return; }
-    const guts = [];
-    for (let i = 0; i < window._addlGutCount; i++) {
-      const num = document.getElementById('addl-num-' + i)?.value;
-      if (num) guts.push({
-        gutNumber: num,
-        area: document.getElementById('addl-area-' + i)?.value || '',
-        beneficiary: document.getElementById('addl-ben-' + i)?.value || '',
-        compensation: document.getElementById('addl-comp-' + i)?.value || ''
-      });
-    }
-    if (!guts.length) { showToast('Add at least one gut number.', 'error'); return; }
-
-    // 3a (lower) record
-    const a3id = newId();
-    DB.process3a.push({ id: a3id, projectId: laState.projectId, villageId: laState.villageId,
-      type: 'lower3a', notifDate: date, calaPost: 'Additional Area', calaName: '', calaMobile: '', isAdditional: true });
-
-    // 3A (upper) record — skip JM
-    const A3id = newId();
-    DB.process3a.push({ id: A3id, projectId: laState.projectId, villageId: laState.villageId,
-      type: 'upper3A', notifDate: date, isAdditional: true });
-    guts.forEach(g => DB.process3aGuts.push({ id: newId(), process3aId: A3id, gutNumber: g.gutNumber, area: g.area }));
-
-    // 3D
-    const d3id = newId();
-    DB.process3D.push({ id: d3id, projectId: laState.projectId, villageId: laState.villageId,
-      notifDate: date, isAdditional: true });
-    guts.forEach(g => DB.process3DGuts.push({ id: newId(), process3DId: d3id,
-      gutNumber: g.gutNumber, area: g.area, beneficiary: g.beneficiary }));
-
-    // 3G
-    const g3id = newId();
-    DB.process3G.push({ id: g3id, projectId: laState.projectId, villageId: laState.villageId,
-      notifDate: date, isAdditional: true });
-    guts.forEach(g => DB.process3GGuts.push({ id: newId(), process3GId: g3id,
-      gutNumber: g.gutNumber, beneficiary: g.beneficiary, compensation: g.compensation }));
-
-    saveDB(); showToast('Additional Area saved! (3a → 3A → 3D → 3G completed)', 'success'); renderLATabs();
-  });
-}
 
 
 // ═══════════════════════════════════════════════════════
