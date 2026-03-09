@@ -226,12 +226,12 @@ body {
 .stat-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 36px 28px;
+  border-radius: 14px;
+  padding: 24px 22px;
   transition: background 0.15s;
 }
 .stat-card:hover { background: var(--card-hover); }
-.stat-card .label { font-size: 14px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 14px; font-weight: 700; }
+.stat-card .label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 10px; font-weight: 700; }
 .stat-card .value { font-size: 26px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
 .stat-card .sub { font-size: 14px; color: var(--text-dim); margin-top: 8px; }
 .stat-card.accent .value { color: var(--accent); }
@@ -1149,37 +1149,37 @@ function renderDashboard() {
     <div class="stats-grid">
       <div class="stat-card accent">
         <div class="label">Total Projects</div>
-        <div class="value" style="font-size:14px;white-space:nowrap">${myProjects.length}</div>
+        <div class="value" style="font-size:32px;white-space:nowrap">${myProjects.length}</div>
         <div class="sub">Active projects</div>
       </div>
       <div class="stat-card blue">
         <div class="label">3<span style="text-transform:lowercase">a</span> Notification</div>
-        <div class="value" style="font-size:14px;white-space:nowrap">${uniqueCALA} CALA</div>
-        <div style="font-size:13px;font-weight:500;color:#3b82f6;margin-top:2px">${total3aVillages} Villages</div>
+        <div class="value" style="font-size:32px;white-space:nowrap">${uniqueCALA} CALA</div>
+        <div style="font-size:15px;font-weight:600;color:inherit;margin-top:4px;opacity:0.8">${total3aVillages} Villages</div>
         <div class="sub">CALA Notified</div>
       </div>
       <div class="stat-card purple">
         <div class="label">3A Details</div>
-        <div class="value" style="font-size:14px;white-space:nowrap">${total3A.toFixed(2)} Ha / ${latestArea.toFixed(2)} Ha</div>
-        <div style="font-size:13px;font-weight:500;color:#a78bfa;margin-top:2px">(${count3A} Villages)</div>
+        <div class="value" style="font-size:32px;white-space:nowrap">${total3A.toFixed(2)} Ha / ${latestArea.toFixed(2)} Ha</div>
+        <div style="font-size:15px;font-weight:600;color:inherit;margin-top:4px;opacity:0.8">(${count3A} Villages)</div>
         <div class="sub">Intention to Acquire Land</div>
       </div>
       <div class="stat-card orange">
         <div class="label">JM Completed</div>
-        <div class="value" style="font-size:14px;white-space:nowrap">${totalJM.toFixed(2)} Ha / ${latestArea.toFixed(2)} Ha</div>
-        <div style="font-size:13px;font-weight:500;color:#fb923c;margin-top:2px">(${countJM} Villages)</div>
+        <div class="value" style="font-size:32px;white-space:nowrap">${totalJM.toFixed(2)} Ha / ${latestArea.toFixed(2)} Ha</div>
+        <div style="font-size:15px;font-weight:600;color:inherit;margin-top:4px;opacity:0.8">(${countJM} Villages)</div>
         <div class="sub">Joint Measurement of Land</div>
       </div>
       <div class="stat-card green">
         <div class="label">3D Completed</div>
-        <div class="value" style="font-size:14px;white-space:nowrap">${total3D.toFixed(2)} Ha / ${latestArea.toFixed(2)} Ha</div>
-        <div style="font-size:13px;font-weight:500;color:#22c55e;margin-top:2px">(${count3D} Villages)</div>
+        <div class="value" style="font-size:32px;white-space:nowrap">${total3D.toFixed(2)} Ha / ${latestArea.toFixed(2)} Ha</div>
+        <div style="font-size:15px;font-weight:600;color:inherit;margin-top:4px;opacity:0.8">(${count3D} Villages)</div>
         <div class="sub">Declaration of Acquisition</div>
       </div>
       <div class="stat-card teal">
         <div class="label">3G Completed</div>
-        <div class="value" style="font-size:14px;white-space:nowrap">${total3G.toFixed(2)} Ha / ${latestArea.toFixed(2)} Ha</div>
-        <div style="font-size:13px;font-weight:500;color:#2dd4bf;margin-top:2px">(${count3G} Villages)</div>
+        <div class="value" style="font-size:32px;white-space:nowrap">${total3G.toFixed(2)} Ha / ${latestArea.toFixed(2)} Ha</div>
+        <div style="font-size:15px;font-weight:600;color:inherit;margin-top:4px;opacity:0.8">(${count3G} Villages)</div>
         <div class="sub" style="margin-top:2px">₹${totalComp3G.toLocaleString('en-IN')}</div>
         <div class="sub">Award Declared</div>
       </div>
@@ -1192,7 +1192,7 @@ function renderDashboard() {
       <div class="panel-body">
         ${myProjects.length === 0 ? `<div class="empty-state"><div class="icon">📁</div><h3>No Projects Yet</h3><p>Projects will appear here once created.</p></div>` :
         `<div class="table-wrap"><table>
-          <thead><tr><th>Project Name</th><th>TAFS No.</th><th>3A Progress</th><th>JM Progress</th><th>3D Progress</th><th>3G Progress</th><th>Length Progress</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Project Name</th><th>3A Progress</th><th>JM Progress</th><th>3D Progress</th><th>3G Progress</th><th>Length Progress</th><th>Actions</th></tr></thead>
           <tbody>${myProjects.map(p => {
             // Latest Area for this project (village by village)
             const pVils = DB.villages.filter(v => v.projectId === p.id);
@@ -1245,22 +1245,30 @@ function renderDashboard() {
 
             return `<tr>
               <td><strong>${p.name}</strong></td>
-              <td class="mono">${p.tafsNo}</td>
-              <td style="min-width:110px">
+              <td style="min-width:130px;padding:8px">
+                <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">${pct3A}%</div>
                 <div class="progress-bar"><div class="progress-fill" style="width:${pct3A}%;background:linear-gradient(90deg,#a78bfa,#c4b5fd)"></div></div>
-                <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${pct3A}% (${p3AArea.toFixed(2)}/${laReq} Ha)</div>
+                <div style="font-size:13px;color:var(--text-dim);margin-top:4px">${p3AArea.toFixed(2)} / ${laReq} Ha</div>
               </td>
-              <td style="min-width:110px">
+              <td style="min-width:130px;padding:8px">
+                <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">${pctJM}%</div>
                 <div class="progress-bar"><div class="progress-fill" style="width:${pctJM}%;background:linear-gradient(90deg,#fb923c,#fdba74)"></div></div>
-                <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${pctJM}% (${pJMArea.toFixed(2)}/${pLatestArea.toFixed(2)} Ha)</div>
+                <div style="font-size:13px;color:var(--text-dim);margin-top:4px">${pJMArea.toFixed(2)} / ${pLatestArea.toFixed(2)} Ha</div>
               </td>
-              <td style="min-width:110px">
+              <td style="min-width:130px;padding:8px">
+                <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">${pct3D}%</div>
                 <div class="progress-bar"><div class="progress-fill" style="width:${pct3D}%;background:linear-gradient(90deg,#22c55e,#86efac)"></div></div>
-                <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${pct3D}% (${p3DArea.toFixed(2)}/${pLatestArea.toFixed(2)} Ha)</div>
+                <div style="font-size:13px;color:var(--text-dim);margin-top:4px">${p3DArea.toFixed(2)} / ${pLatestArea.toFixed(2)} Ha</div>
               </td>
-              <td style="min-width:120px">
+              <td style="min-width:130px;padding:8px">
+                <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">${pctArea}%</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:${pctArea}%;background:linear-gradient(90deg,#2dd4bf,#5eead4)"></div></div>
+                <div style="font-size:13px;color:var(--text-dim);margin-top:4px">${p3GHa.toFixed(2)} / ${pLatestArea.toFixed(2)} Ha</div>
+              </td>
+              <td style="min-width:130px;padding:8px">
+                <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">${pctLen}%</div>
                 <div class="progress-bar"><div class="progress-fill" style="width:${pctLen}%;background:linear-gradient(90deg,#3b82f6,#60a5fa)"></div></div>
-                <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${pctLen}% (${pLatestLen.toFixed(2)}/${projLen} km)</div>
+                <div style="font-size:13px;color:var(--text-dim);margin-top:4px">${pLatestLen.toFixed(2)} / ${projLen} km</div>
               </td>
               <td>
                 <div class="flex gap-2 flex-wrap">
