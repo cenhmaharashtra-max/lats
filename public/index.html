@@ -222,18 +222,18 @@ body {
 .page-content { padding: 28px; flex: 1; }
 
 /* CARDS & PANELS */
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; margin-bottom: 32px; }
 .stat-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 28px 24px;
+  border-radius: 16px;
+  padding: 36px 28px;
   transition: background 0.15s;
 }
 .stat-card:hover { background: var(--card-hover); }
-.stat-card .label { font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 12px; font-weight: 600; }
-.stat-card .value { font-size: 22px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
-.stat-card .sub { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+.stat-card .label { font-size: 14px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 14px; font-weight: 700; }
+.stat-card .value { font-size: 26px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
+.stat-card .sub { font-size: 14px; color: var(--text-dim); margin-top: 8px; }
 .stat-card.accent .value { color: var(--accent); }
 .stat-card.green .value { color: var(--green); }
 .stat-card.blue .value { color: var(--blue); }
@@ -1192,7 +1192,7 @@ function renderDashboard() {
       <div class="panel-body">
         ${myProjects.length === 0 ? `<div class="empty-state"><div class="icon">📁</div><h3>No Projects Yet</h3><p>Projects will appear here once created.</p></div>` :
         `<div class="table-wrap"><table>
-          <thead><tr><th>Project Name</th><th>TAFS No.</th><th>3A vs LA Req</th><th>JM vs Latest</th><th>3D vs Latest</th><th>Progress (Length)</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Project Name</th><th>TAFS No.</th><th>3A Progress</th><th>JM Progress</th><th>3D Progress</th><th>3G Progress</th><th>Length Progress</th><th>Actions</th></tr></thead>
           <tbody>${myProjects.map(p => {
             // Latest Area for this project (village by village)
             const pVils = DB.villages.filter(v => v.projectId === p.id);
@@ -1323,7 +1323,7 @@ function renderProjects() {
         ${DB.projects.length === 0
           ? `<div class="empty-state"><div class="icon">📁</div><h3>No Projects Created</h3><p>Create your first project using the button above.</p></div>`
           : `<div class="table-wrap"><table>
-              <thead><tr><th>#</th><th>Project Name</th><th>TAFS No.</th><th>Length</th><th>TPC</th><th>LA Cost</th><th>3A vs LA Req</th><th>JM vs Latest</th><th>3D vs Latest</th><th>Actions</th></tr></thead>
+              <thead><tr><th>#</th><th>Project Name</th><th>TAFS No.</th><th>Length</th><th>TPC</th><th>LA Cost</th><th>3A Progress</th><th>JM Progress</th><th>3D Progress</th><th>Actions</th></tr></thead>
               <tbody>
                 ${DB.projects.map((p, i) => {
                   const s3ARecs = DB.process3a.filter(x=>x.projectId===p.id&&x.type==='upper3A');
@@ -1345,6 +1345,9 @@ function renderProjects() {
                   const s3DRecs = DB.process3D.filter(x=>x.projectId===p.id);
                   const s3DArea = s3DRecs.reduce((s,r)=>s+DB.process3DGuts.filter(g=>g.process3DId===r.id).reduce((ss,g)=>ss+(parseFloat(g.area)||0),0),0);
                   const sPct3D = sLatest > 0 ? Math.min(100,Math.round((s3DArea/sLatest)*100)) : 0;
+                  const s3GRecs = DB.process3G.filter(x=>x.projectId===p.id);
+                  const s3GArea = s3GRecs.reduce((s,r)=>s+DB.process3DGuts.filter(g=>g.process3DId===(DB.process3D.find(d=>d.villageId===r.villageId&&d.projectId===p.id)||{}).id).reduce((ss,g)=>ss+(parseFloat(g.area)||0),0),0);
+                  const sPct3G = sLatest > 0 ? Math.min(100,Math.round((s3GArea/sLatest)*100)) : 0;
                   return `<tr>
                   <td class="mono">${i+1}</td>
                   <td><strong>${p.name}</strong></td>
@@ -1352,17 +1355,25 @@ function renderProjects() {
                   <td class="mono">${p.length || p.len || ''} km</td>
                   <td class="mono">₹${Number(p.tpc||0).toLocaleString('en-IN')}</td>
                   <td class="mono">₹${Number(p.laCost||0).toLocaleString('en-IN')}</td>
-                  <td style="min-width:110px">
+                  <td style="min-width:130px;padding:8px">
+                    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">${sPct3A}%</div>
                     <div class="progress-bar"><div class="progress-fill" style="width:${sPct3A}%;background:linear-gradient(90deg,#a78bfa,#c4b5fd)"></div></div>
-                    <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${sPct3A}% (${s3AArea.toFixed(2)}/${sLaReq} Ha)</div>
+                    <div style="font-size:12px;color:var(--text-dim);margin-top:4px">${s3AArea.toFixed(2)} / ${sLaReq} Ha</div>
                   </td>
-                  <td style="min-width:110px">
+                  <td style="min-width:130px;padding:8px">
+                    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">${sPctJM}%</div>
                     <div class="progress-bar"><div class="progress-fill" style="width:${sPctJM}%;background:linear-gradient(90deg,#fb923c,#fdba74)"></div></div>
-                    <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${sPctJM}% (${sJMArea.toFixed(2)}/${sLatest.toFixed(2)} Ha)</div>
+                    <div style="font-size:12px;color:var(--text-dim);margin-top:4px">${sJMArea.toFixed(2)} / ${sLatest.toFixed(2)} Ha</div>
                   </td>
-                  <td style="min-width:110px">
+                  <td style="min-width:130px;padding:8px">
+                    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">${sPct3D}%</div>
                     <div class="progress-bar"><div class="progress-fill" style="width:${sPct3D}%;background:linear-gradient(90deg,#22c55e,#86efac)"></div></div>
-                    <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${sPct3D}% (${s3DArea.toFixed(2)}/${sLatest.toFixed(2)} Ha)</div>
+                    <div style="font-size:12px;color:var(--text-dim);margin-top:4px">${s3DArea.toFixed(2)} / ${sLatest.toFixed(2)} Ha</div>
+                  </td>
+                  <td style="min-width:130px;padding:8px">
+                    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">${sPct3G}%</div>
+                    <div class="progress-bar"><div class="progress-fill" style="width:${sPct3G}%;background:linear-gradient(90deg,#2dd4bf,#5eead4)"></div></div>
+                    <div style="font-size:12px;color:var(--text-dim);margin-top:4px">${s3GArea.toFixed(2)} / ${sLatest.toFixed(2)} Ha</div>
                   </td>
                   <td>
                     <div class="flex gap-2">
