@@ -1028,7 +1028,8 @@ function navigate(page, params) {
 // ═══════════════════════════════════════════════════════
 // VIEW AS USER
 // ═══════════════════════════════════════════════════════
-function renderViewAs() {
+async function renderViewAs() {
+  try { DB.users = await api('GET', '/api/auth/users'); } catch(e) {}
   const normalUsers = DB.users.filter(u => u.role !== 'admin');
   document.getElementById('page-content').innerHTML = `
     <div class="panel">
@@ -1041,7 +1042,7 @@ function renderViewAs() {
           ℹ Select a user to see exactly what they see — their assigned projects, villages, and LA data. You are in <strong>read-only preview mode</strong>.
         </div>
         ${normalUsers.length === 0
-          ? `<div class="empty-state"><div class="icon">👥</div><h3>No Users Yet</h3><p>Create users from User Management first.</p></div>`
+          ? `<div class="empty-state"><div class="icon">👥</div><h3>No Users Yet</h3><p>Create users from <a href="#" onclick="navigate('users')" style="color:var(--accent)">User Management</a> first, then assign projects to them.</p></div>`
           : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px">
               ${normalUsers.map(u => {
                 const assignedProjects = DB.projects.filter(p => isProjectAssigned(p.id, u.id));
