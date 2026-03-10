@@ -721,27 +721,31 @@ function mapSync(d) {
   DB.process3a = (d.p3a||[]).map(x=>({
     id:x.id, projectId:x.project_id, villageId:x.village_id, type:x.ptype,
     notifDate:x.notif_date||'', calaPost:x.cala_post, calaName:x.cala_name,
-    calaMobile:x.cala_mobile, laLength3a:x.la_length_3a||'', isAdditional:x.is_addl
+    calaMobile:x.cala_mobile, laLength3a:x.la_length_3a||'',
+    srNo:x.sr_no||1, srName:x.sr_name||'Main'
   }));
   DB.process3aGuts = (d.p3aGuts||[]).map(g=>({
     id:g.id, process3aId:g.p3a_id, gutNumber:g.gut_number, area:g.area, landType:g.land_type
   }));
   DB.processJM = (d.pjm||[]).map(x=>({
     id:x.id, projectId:x.project_id, villageId:x.village_id,
-    jmDate:x.jm_date||'', sheetDate:x.sheet_date||'', laLengthJm:x.la_length_jm||''
+    jmDate:x.jm_date||'', sheetDate:x.sheet_date||'', laLengthJm:x.la_length_jm||'',
+    srNo:x.sr_no||1, srName:x.sr_name||'Main'
   }));
   DB.processJMGuts = (d.pjmGuts||[]).map(g=>({
-    id:g.id, processJMId:g.pjm_id, gutNumber:g.gut_number, modArea:g.mod_area, isAddl:g.is_addl||false
+    id:g.id, processJMId:g.pjm_id, gutNumber:g.gut_number, modArea:g.mod_area
   }));
   DB.process3D = (d.p3d||[]).map(x=>({
-    id:x.id, projectId:x.project_id, villageId:x.village_id, notifDate:x.notif_date||'', laLength3d:x.la_length_3d||''
+    id:x.id, projectId:x.project_id, villageId:x.village_id, notifDate:x.notif_date||'', laLength3d:x.la_length_3d||'',
+    srNo:x.sr_no||1, srName:x.sr_name||'Main'
   }));
   DB.process3DGuts = (d.p3dGuts||[]).map(g=>({
     id:g.id, process3DId:g.p3d_id, gutNumber:g.gut_number, area:g.area,
     beneficiary:g.beneficiary, landType:g.land_type
   }));
   DB.process3G = (d.p3g||[]).map(x=>({
-    id:x.id, projectId:x.project_id, villageId:x.village_id, notifDate:x.notif_date||'', laLength3g:x.la_length_3g||''
+    id:x.id, projectId:x.project_id, villageId:x.village_id, notifDate:x.notif_date||'', laLength3g:x.la_length_3g||'',
+    srNo:x.sr_no||1, srName:x.sr_name||'Main'
   }));
   DB.process3GGuts = (d.p3gGuts||[]).map(g=>({
     id:g.id, process3GId:g.p3g_id, gutNumber:g.gut_number,
@@ -1087,21 +1091,27 @@ function renderVillageWiseTable(villages, projects, filterProjectId) {
     <tbody>${filtered.map(v => {
       const proj = projects.find(p => p.id === v.projectId);
       const has3a = DB.process3a.some(x => x.villageId === v.id && x.projectId === v.projectId && x.type === 'lower3a');
-      const rec3A = DB.process3a.find(x => x.villageId === v.id && x.projectId === v.projectId && x.type === 'upper3A');
-      const has3A = rec3A && DB.process3aGuts.some(g => g.process3aId === rec3A.id);
-      const hasJM = DB.processJM.some(x => x.villageId === v.id && x.projectId === v.projectId);
-      const has3D = DB.process3D.some(x => x.villageId === v.id && x.projectId === v.projectId);
-      const has3G = DB.process3G.some(x => x.villageId === v.id && x.projectId === v.projectId);
+      // Get all Sr entries
+      const all3As = DB.process3a.filter(x => x.villageId === v.id && x.projectId === v.projectId && x.type === 'upper3A');
+      const allJMs = DB.processJM.filter(x => x.villageId === v.id && x.projectId === v.projectId);
+      const all3Ds = DB.process3D.filter(x => x.villageId === v.id && x.projectId === v.projectId);
+      const all3Gs = DB.process3G.filter(x => x.villageId === v.id && x.projectId === v.projectId);
+      const has3A = all3As.some(r => DB.process3aGuts.some(g => g.process3aId === r.id));
+      const hasJM = allJMs.length > 0;
+      const has3D = all3Ds.length > 0;
+      const has3G = all3Gs.length > 0;
+      const maxSr = Math.max(1, ...all3As.map(x=>x.srNo||1));
       const statusText = has3G ? '3G Done' : has3D ? '3D Done' : hasJM ? 'JM Done' : has3A ? '3A Done' : has3a ? '3a Done' : 'Pending';
       const statusColor = has3G ? 'badge-complete' : has3D ? 'badge-3d' : hasJM ? 'badge-jm' : has3A ? 'badge-3a' : has3a ? 'badge-user' : 'badge-pending';
       return `<tr>
-        <td><strong>${v.name}</strong></td><td>${v.taluka}</td>
+        <td><strong>${v.name}</strong>${maxSr > 1 ? ` <span style="font-size:11px;color:#fb923c;font-weight:600">${maxSr} Sr.</span>` : ''}</td>
+        <td>${v.taluka}</td>
         <td><span class="chip">${proj?.name || '—'}</span></td>
         <td style="text-align:center">${has3a ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
-        <td style="text-align:center">${has3A ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
-        <td style="text-align:center">${hasJM ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
-        <td style="text-align:center">${has3D ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
-        <td style="text-align:center">${has3G ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
+        <td style="text-align:center">${has3A ? `<span style="color:#4ade80">✅</span><span style="font-size:10px;color:#a78bfa;margin-left:3px">${all3As.length > 1 ? '×'+all3As.length : ''}</span>` : '<span style="color:#888">—</span>'}</td>
+        <td style="text-align:center">${hasJM ? `<span style="color:#4ade80">✅</span><span style="font-size:10px;color:#fb923c;margin-left:3px">${allJMs.length > 1 ? '×'+allJMs.length : ''}</span>` : '<span style="color:#888">—</span>'}</td>
+        <td style="text-align:center">${has3D ? `<span style="color:#4ade80">✅</span><span style="font-size:10px;color:#22c55e;margin-left:3px">${all3Ds.length > 1 ? '×'+all3Ds.length : ''}</span>` : '<span style="color:#888">—</span>'}</td>
+        <td style="text-align:center">${has3G ? `<span style="color:#4ade80">✅</span><span style="font-size:10px;color:#2dd4bf;margin-left:3px">${all3Gs.length > 1 ? '×'+all3Gs.length : ''}</span>` : '<span style="color:#888">—</span>'}</td>
         <td><span class="badge ${statusColor}">${statusText}</span></td>
       </tr>`;
     }).join('')}</tbody>
@@ -1128,7 +1138,7 @@ function renderDashboard() {
 
   // JM Ha total + village count
   const allJMRecs = DB.processJM.filter(function(x){ return myProjectIds.indexOf(x.projectId) !== -1; });
-  const totalJM = allJMRecs.reduce(function(sum, r){ return sum + DB.processJMGuts.filter(function(g){ return g.processJMId === r.id && !g.isAddl; }).reduce(function(s,g){ return s + (parseFloat(g.modArea)||0); }, 0); }, 0);
+  const totalJM = allJMRecs.reduce(function(sum, r){ return sum + DB.processJMGuts.filter(function(g){ return g.processJMId === r.id ; }).reduce(function(s,g){ return s + (parseFloat(g.modArea)||0); }, 0); }, 0);
   const countJM = allJMRecs.length;
 
   // Latest Area to be Acquired — village by village: JM area > 3A area > TAFS laRequired
@@ -1229,7 +1239,7 @@ function renderDashboard() {
             let pLatestArea = 0;
             pVils.forEach(function(v) {
               const vjm = DB.processJM.find(x => x.villageId===v.id && x.projectId===p.id);
-              if (vjm) { pLatestArea += DB.processJMGuts.filter(g=>g.processJMId===vjm.id&&!g.isAddl).reduce((s,g)=>s+(parseFloat(g.modArea)||0),0); return; }
+              if (vjm) { pLatestArea += DB.processJMGuts.filter(g=>g.processJMId===vjm.id).reduce((s,g)=>s+(parseFloat(g.modArea)||0),0); return; }
               const v3A = DB.process3a.find(x => x.villageId===v.id && x.projectId===p.id && x.type==='upper3A');
               if (v3A) { pLatestArea += DB.process3aGuts.filter(g=>g.process3aId===v3A.id).reduce((s,g)=>s+(parseFloat(g.area)||0),0); return; }
             });
@@ -1243,7 +1253,7 @@ function renderDashboard() {
 
             // JM area for this project (excl addl guts)
             const pJMRecs = DB.processJM.filter(x=>x.projectId===p.id);
-            const pJMArea = pJMRecs.reduce((s,r)=>s+DB.processJMGuts.filter(g=>g.processJMId===r.id&&!g.isAddl).reduce((ss,g)=>ss+(parseFloat(g.modArea)||0),0),0);
+            const pJMArea = pJMRecs.reduce((s,r)=>s+DB.processJMGuts.filter(g=>g.processJMId===r.id).reduce((ss,g)=>ss+(parseFloat(g.modArea)||0),0),0);
             const pctJM = pLatestArea > 0 ? Math.min(100, Math.round((pJMArea / pLatestArea) * 100)) : 0;
 
             // 3D area for this project
@@ -1363,13 +1373,13 @@ function renderProjects() {
                   let sLatest = 0;
                   sVils.forEach(function(v){
                     const vj=DB.processJM.find(x=>x.villageId===v.id&&x.projectId===p.id);
-                    if(vj){sLatest+=DB.processJMGuts.filter(g=>g.processJMId===vj.id&&!g.isAddl).reduce((s,g)=>s+(parseFloat(g.modArea)||0),0);return;}
+                    if(vj){sLatest+=DB.processJMGuts.filter(g=>g.processJMId===vj.id).reduce((s,g)=>s+(parseFloat(g.modArea)||0),0);return;}
                     const v3=DB.process3a.find(x=>x.villageId===v.id&&x.projectId===p.id&&x.type==='upper3A');
                     if(v3){sLatest+=DB.process3aGuts.filter(g=>g.process3aId===v3.id).reduce((s,g)=>s+(parseFloat(g.area)||0),0);return;}
                   });
                   if(sLatest===0) sLatest=sLaReq;
                   const sJMRecs = DB.processJM.filter(x=>x.projectId===p.id);
-                  const sJMArea = sJMRecs.reduce((s,r)=>s+DB.processJMGuts.filter(g=>g.processJMId===r.id&&!g.isAddl).reduce((ss,g)=>ss+(parseFloat(g.modArea)||0),0),0);
+                  const sJMArea = sJMRecs.reduce((s,r)=>s+DB.processJMGuts.filter(g=>g.processJMId===r.id).reduce((ss,g)=>ss+(parseFloat(g.modArea)||0),0),0);
                   const sPctJM = sLatest > 0 ? Math.min(100,Math.round((sJMArea/sLatest)*100)) : 0;
                   const s3DRecs = DB.process3D.filter(x=>x.projectId===p.id);
                   const s3DArea = s3DRecs.reduce((s,r)=>s+DB.process3DGuts.filter(g=>g.process3DId===r.id).reduce((ss,g)=>ss+(parseFloat(g.area)||0),0),0);
@@ -1756,7 +1766,7 @@ function deleteVillage(id) {
 //  3D             = Declaration / Award with beneficiary names
 //  3G             = Compensation payment per beneficiary
 // ═══════════════════════════════════════════════════════
-let laState = { projectId: null, villageId: null, tab: 'lower3a' };
+let laState = { projectId: null, villageId: null, tab: 'lower3a', srNo: 1 };
 
 function renderLAProcess(params) {
   const myProjects = currentUser.role === 'admin'
@@ -1807,6 +1817,8 @@ function renderLAProcess(params) {
     laState.projectId = this.value ? parseInt(this.value) : null;
     laState.villageId = null;
     laState.tab = 'lower3a';
+    laState.srNo = 1;
+    delete laState._newSrName;
     renderLAProcess();
   });
 
@@ -1814,6 +1826,8 @@ function renderLAProcess(params) {
     document.getElementById('la-village-sel').addEventListener('change', function() {
       laState.villageId = this.value ? parseInt(this.value) : null;
       laState.tab = 'lower3a';
+      laState.srNo = 1;
+      delete laState._newSrName;
       renderLATabs();
     });
   }
@@ -1842,78 +1856,146 @@ function laTabClick(tabKey, prereqDone, prereqLabel) {
   renderLATabs();
 }
 
+function getSrLabel(srNo, srName) {
+  return srNo === 1 ? 'Sr.1 (Main)' : ('Sr.' + srNo + ' (' + (srName||'Add') + ')');
+}
+
+function addNewSr() {
+  // Find max sr_no for this village's upper3A entries
+  const existing3A = DB.process3a.filter(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
+  const maxSr = existing3A.reduce((m, x) => Math.max(m, x.srNo||1), 1);
+  const newSr = maxSr + 1;
+  // Ask for name
+  const srName = prompt('Enter name for Sr.' + newSr + ' (e.g. "Add Nandurbar", "Add extra area"):');
+  if (!srName || !srName.trim()) return;
+  laState.srNo = newSr;
+  laState._newSrName = srName.trim();
+  laState.tab = 'upper3A';
+  renderLATabs();
+}
+
 function renderLATabs() {
   const v = DB.villages.find(x => x.id === laState.villageId);
   if (!v) return;
 
-  // Stage completion flags
-  const hasLower3a = DB.process3a.some(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'lower3a');
-  const _rec3A     = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
-  const hasUpper3A = _rec3A && DB.process3aGuts.some(g => g.process3aId === _rec3A.id);
-  const hasJM      = DB.processJM.some(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
-  const has3D      = DB.process3D.some(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
-  const has3G      = DB.process3G.some(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
+  // All Sr entries for this village (based on upper3A records)
+  const all3AForVil = DB.process3a.filter(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
+  const srList = [{ srNo: 1, srName: 'Main' }];
+  all3AForVil.forEach(x => {
+    if (x.srNo > 1 && !srList.find(s => s.srNo === x.srNo)) {
+      srList.push({ srNo: x.srNo, srName: x.srName || 'Add' });
+    }
+  });
+  // Also check if we're on a new unsaved sr
+  if (laState.srNo > 1 && !srList.find(s => s.srNo === laState.srNo)) {
+    srList.push({ srNo: laState.srNo, srName: laState._newSrName || 'Add' });
+  }
+  srList.sort((a,b) => a.srNo - b.srNo);
 
-  // Step definitions
-  const steps = [
-    { key: 'lower3a', label: '3a Notification',  done: hasLower3a, num: 1 },
-    { key: 'upper3A', label: '3A Details',        done: hasUpper3A, num: 2 },
-    { key: 'jm',      label: 'JM Process',        done: hasJM,      num: 3 },
-    { key: '3d',      label: '3D Declaration',    done: has3D,      num: 4 },
-    { key: '3g',      label: '3G Compensation',   done: has3G,      num: 5 },
-  ];
+  const sr = laState.srNo || 1;
 
-  // Tab lock logic
-  const locks = {
-    lower3a: { allowed: true,         prereq: '' },
-    upper3A: { allowed: hasLower3a,   prereq: '3a Notification' },
-    jm:      { allowed: hasUpper3A,   prereq: '3A Details' },
-    '3d':    { allowed: hasJM,        prereq: 'JM Process' },
-    '3g':    { allowed: has3D,        prereq: '3D Declaration' },
-    addl:    { allowed: true,         prereq: '' },
-  };
+  // Stage completion flags — filtered by srNo
+  const hasLower3a = sr === 1
+    ? DB.process3a.some(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'lower3a')
+    : true; // 3a is only for Sr.1; for Sr.2+ it's already done
+  const _rec3A     = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A' && (x.srNo||1) === sr);
+  const hasUpper3A = _rec3A && _rec3A.notifDate && DB.process3aGuts.some(g => g.process3aId === _rec3A.id);
+  const _recJM     = DB.processJM.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && (x.srNo||1) === sr);
+  const hasJM      = !!_recJM;
+  const _rec3D     = DB.process3D.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && (x.srNo||1) === sr);
+  const has3D      = !!_rec3D;
+  const has3G      = DB.process3G.some(x => x.villageId === laState.villageId && x.projectId === laState.projectId && (x.srNo||1) === sr);
 
-  document.getElementById('la-content').innerHTML = `
+  // Steps — hide 3a tab for Sr.2+
+  const steps = sr === 1
+    ? [
+        { key: 'lower3a', label: '3a Notification', done: hasLower3a, num: 1 },
+        { key: 'upper3A', label: '3A Details',       done: hasUpper3A, num: 2 },
+        { key: 'jm',      label: 'JM Process',       done: hasJM,      num: 3 },
+        { key: '3d',      label: '3D Declaration',   done: has3D,      num: 4 },
+        { key: '3g',      label: '3G Compensation',  done: has3G,      num: 5 },
+      ]
+    : [
+        { key: 'upper3A', label: '3A Details',       done: hasUpper3A, num: 1 },
+        { key: 'jm',      label: 'JM Process',       done: hasJM,      num: 2 },
+        { key: '3d',      label: '3D Declaration',   done: has3D,      num: 3 },
+        { key: '3g',      label: '3G Compensation',  done: has3G,      num: 4 },
+      ];
+
+  const locks = sr === 1
+    ? {
+        lower3a: { allowed: true,         prereq: '' },
+        upper3A: { allowed: hasLower3a,   prereq: '3a Notification' },
+        jm:      { allowed: hasUpper3A,   prereq: '3A (with notif date & guts)' },
+        '3d':    { allowed: hasJM,        prereq: 'JM Process' },
+        '3g':    { allowed: has3D,        prereq: '3D Declaration' },
+      }
+    : {
+        upper3A: { allowed: true,         prereq: '' },
+        jm:      { allowed: hasUpper3A,   prereq: '3A (with notif date & guts)' },
+        '3d':    { allowed: hasJM,        prereq: 'JM Process' },
+        '3g':    { allowed: has3D,        prereq: '3D Declaration' },
+      };
+
+  document.getElementById('la-content').innerHTML = \`
+    <!-- Sr. No Tabs -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-right:4px">Serial No:</span>
+      \${srList.map(s => \`
+        <div class="tab \${s.srNo === sr ? 'active' : ''}" data-sr="\${s.srNo}"
+          style="cursor:pointer;padding:6px 14px;font-size:13px;font-weight:600;border-radius:6px;\${s.srNo === sr ? 'background:var(--accent);color:var(--navy)' : 'background:var(--card);border:1px solid var(--border)'}">
+          Sr.\${s.srNo}\${s.srNo === 1 ? ' (Main)' : ' (' + s.srName + ')'}
+        </div>
+      \`).join('')}
+      <button class="btn btn-secondary btn-sm" onclick="addNewSr()" style="padding:6px 12px;font-size:13px">+ Add Sr.</button>
+    </div>
+
     <div class="process-steps">
-      ${steps.map((s, i) => `
+      \${steps.map((s, i) => \`
         <div class="process-step">
           <div class="step-item">
-            <div class="step-circle ${s.done ? 'done' : laState.tab === s.key ? 'active' : ''}">${s.done ? '✓' : s.num}</div>
-            <div class="step-label ${laState.tab === s.key ? 'active' : ''}">${s.label}</div>
+            <div class="step-circle \${s.done ? 'done' : laState.tab === s.key ? 'active' : ''}">\${s.done ? '✓' : s.num}</div>
+            <div class="step-label \${laState.tab === s.key ? 'active' : ''}">\${s.label}</div>
           </div>
-          ${i < steps.length - 1 ? `<div class="step-connector ${s.done ? 'done' : ''}"></div>` : ''}
+          \${i < steps.length - 1 ? \`<div class="step-connector \${s.done ? 'done' : ''}"></div>\` : ''}
         </div>
-      `).join('')}
+      \`).join('')}
     </div>
 
     <div class="tabs" id="la-tabs">
-      ${steps.map(s => {
+      \${steps.map(s => {
         const lock = locks[s.key];
         const isActive = laState.tab === s.key;
         const locked = !lock.allowed;
-        return `<div class="tab ${isActive ? 'active' : ''} ${locked ? 'tab-locked' : ''}"
-          style="${locked ? 'opacity:0.45;cursor:not-allowed;position:relative;' : 'cursor:pointer;'}"
-          data-tab="${s.key}" data-allowed="${lock.allowed}" data-prereq="${lock.prereq}"
-          title="${locked ? '⚠ Complete ' + lock.prereq + ' First' : ''}">
-          ${locked ? '🔒 ' : ''}${s.label}
-        </div>`;
+        return \`<div class="tab \${isActive ? 'active' : ''} \${locked ? 'tab-locked' : ''}"
+          style="\${locked ? 'opacity:0.45;cursor:not-allowed;position:relative;' : 'cursor:pointer;'}"
+          data-tab="\${s.key}" data-allowed="\${lock.allowed}" data-prereq="\${lock.prereq}"
+          title="\${locked ? '⚠ Complete ' + lock.prereq + ' First' : ''}">
+          \${locked ? '🔒 ' : ''}\${s.label}
+        </div>\`;
       }).join('')}
-
     </div>
 
     <div id="la-tab-content"></div>
-  `;
+  \`;
 
-  // Attach tab click events using event listeners (no inline onclick)
+  // Sr. tab clicks
+  document.querySelectorAll('[data-sr]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      laState.srNo = parseInt(this.getAttribute('data-sr'));
+      delete laState._newSrName;
+      laState.tab = laState.srNo === 1 ? 'lower3a' : 'upper3A';
+      renderLATabs();
+    });
+  });
+
+  // Stage tab clicks
   document.querySelectorAll('#la-tabs .tab').forEach(function(tabEl) {
     tabEl.addEventListener('click', function() {
       const allowed = this.getAttribute('data-allowed') === 'true';
       const prereq  = this.getAttribute('data-prereq');
       const tabKey  = this.getAttribute('data-tab');
-      if (!allowed) {
-        showToast('⚠ Complete ' + prereq + ' First', 'error');
-        return;
-      }
+      if (!allowed) { showToast('⚠ Complete ' + prereq + ' First', 'error'); return; }
       laState.tab = tabKey;
       renderLATabs();
     });
@@ -2018,25 +2100,28 @@ function deleteFromStage(stage, vid, pid) {
   if (stage <= 1) { // delete 3a lower
     DB.process3a = DB.process3a.filter(x => !(x.villageId===vid && x.projectId===pid && x.type==='lower3a'));
   }
-  if (stage <= 2) { // delete 3A upper + guts
-    const recs = DB.process3a.filter(x => x.villageId===vid && x.projectId===pid && x.type==='upper3A');
+  const delSr = laState.srNo||1;
+  if (stage <= 2 && delSr === 1) { // delete 3A lower (only for sr1)
+  }
+  if (stage <= 2) { // delete 3A upper + guts for this srNo
+    const recs = DB.process3a.filter(x => x.villageId===vid && x.projectId===pid && x.type==='upper3A' && (x.srNo||1)===delSr);
     recs.forEach(r => { DB.process3aGuts = DB.process3aGuts.filter(g => g.process3aId !== r.id); });
-    DB.process3a = DB.process3a.filter(x => !(x.villageId===vid && x.projectId===pid && x.type==='upper3A'));
+    DB.process3a = DB.process3a.filter(x => !(x.villageId===vid && x.projectId===pid && x.type==='upper3A' && (x.srNo||1)===delSr));
   }
-  if (stage <= 3) { // delete JM + guts
-    const recs = DB.processJM.filter(x => x.villageId===vid && x.projectId===pid);
+  if (stage <= 3) { // delete JM + guts for this srNo
+    const recs = DB.processJM.filter(x => x.villageId===vid && x.projectId===pid && (x.srNo||1)===delSr);
     recs.forEach(r => { DB.processJMGuts = DB.processJMGuts.filter(g => g.processJMId !== r.id); });
-    DB.processJM = DB.processJM.filter(x => !(x.villageId===vid && x.projectId===pid));
+    DB.processJM = DB.processJM.filter(x => !(x.villageId===vid && x.projectId===pid && (x.srNo||1)===delSr));
   }
-  if (stage <= 4) { // delete 3D + guts
-    const recs = DB.process3D.filter(x => x.villageId===vid && x.projectId===pid);
+  if (stage <= 4) { // delete 3D + guts for this srNo
+    const recs = DB.process3D.filter(x => x.villageId===vid && x.projectId===pid && (x.srNo||1)===delSr);
     recs.forEach(r => { DB.process3DGuts = DB.process3DGuts.filter(g => g.process3DId !== r.id); });
-    DB.process3D = DB.process3D.filter(x => !(x.villageId===vid && x.projectId===pid));
+    DB.process3D = DB.process3D.filter(x => !(x.villageId===vid && x.projectId===pid && (x.srNo||1)===delSr));
   }
-  if (stage <= 5) { // delete 3G + guts
-    const recs = DB.process3G.filter(x => x.villageId===vid && x.projectId===pid);
+  if (stage <= 5) { // delete 3G + guts for this srNo
+    const recs = DB.process3G.filter(x => x.villageId===vid && x.projectId===pid && (x.srNo||1)===delSr);
     recs.forEach(r => { DB.process3GGuts = DB.process3GGuts.filter(g => g.process3GId !== r.id); });
-    DB.process3G = DB.process3G.filter(x => !(x.villageId===vid && x.projectId===pid));
+    DB.process3G = DB.process3G.filter(x => !(x.villageId===vid && x.projectId===pid && (x.srNo||1)===delSr));
   }
   saveDB();
 }
@@ -2055,27 +2140,26 @@ function renderTab_upper3A(hasLower3a) {
     return;
   }
   const existing = DB.process3a.find(x =>
-    x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
+    x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A' && (x.srNo||1) === (laState.srNo||1));
   const guts = existing ? DB.process3aGuts.filter(g => g.process3aId === existing.id) : [];
   window._gutCount_3A = guts.length;
   const isAdmin = currentUser.role === 'admin';
-  const isAddlVil = !!(DB.villages.find(v=>v.id===laState.villageId)?.isAddl);
+  const srNo = laState.srNo||1;
+  const srName = srNo === 1 ? 'Main' : (laState._newSrName || existing?.srName || 'Add');
 
   document.getElementById('la-tab-content').innerHTML = `
     <div class="panel">
       <div class="panel-header">
-        <h3>Stage 2: 3A — Gut Number wise Area Notification</h3>
+        <h3>Stage 2: 3A — Gut Number wise Area Notification <span style="font-size:13px;font-weight:400;color:var(--text-dim)">(Sr.${srNo} — ${srName})</span></h3>
         <div class="flex gap-2 items-center">
           <span class="badge ${existing ? 'badge-complete' : 'badge-pending'}">${existing ? '✓ Saved' : 'Pending'}</span>
           ${isAdmin && existing ? `<button class="btn btn-danger btn-sm" id="del_up3A_btn">🗑 Delete</button>` : ''}
         </div>
       </div>
       <div class="panel-body">
-        ${isAddlVil ? `<div class="alert" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;margin-bottom:16px;font-size:13px">
-          ℹ This is an <strong>Add Village</strong>. Gut numbers are pre-filled from additional guts found in JM. Enter the <strong>3A notification date</strong> and other details, then save.
-        </div>` : `<div class="alert alert-info" style="margin-bottom:18px">
-          ℹ <strong>3A</strong> (Section 3A) records the specific gut numbers and their areas proposed for acquisition.
-        </div>`}
+        <div class="alert alert-info" style="margin-bottom:18px">
+          ℹ <strong>3A Sr.${srNo}</strong>${srNo > 1 ? ` — <strong>${srName}</strong> (Additional area)` : ''}: Records gut numbers and areas proposed for acquisition.
+        </div>
         <div class="form-grid cols-2" style="max-width:700px">
           <div class="field">
             <label class="required">3A Notification Date</label>
@@ -2093,7 +2177,7 @@ function renderTab_upper3A(hasLower3a) {
         </div>
         <div class="divider"></div>
         <div class="flex justify-between items-center mb-4">
-          <h4>Gut Number Details ${isAddlVil ? '<span style="font-size:12px;color:#f59e0b;font-weight:400">(Pre-filled from JM)</span>' : ''}</h4>
+          <h4>Gut Number Details</h4>
           <button class="btn btn-secondary btn-sm" id="addGut3A_btn">+ Add Gut</button>
         </div>
         <div class="table-wrap">
@@ -2130,12 +2214,15 @@ function renderTab_upper3A(hasLower3a) {
     if (existing) {
       existing.notifDate = date;
       existing.laLength3a = document.getElementById('f_up3A_lalen')?.value||'';
+      existing.srNo = laState.srNo||1; existing.srName = srName;
       DB.process3aGuts = DB.process3aGuts.filter(g => g.process3aId !== existing.id);
       guts.forEach(g => DB.process3aGuts.push({ id: newId(), process3aId: existing.id, gutNumber: g.num, area: g.area, landType: g.landType || 'Private Land' }));
     } else {
       const id = newId();
       DB.process3a.push({ id, projectId: laState.projectId, villageId: laState.villageId,
-        type: 'upper3A', notifDate: date, laLength3a: document.getElementById('f_up3A_lalen')?.value||'' });
+        type: 'upper3A', notifDate: date, laLength3a: document.getElementById('f_up3A_lalen')?.value||'',
+        srNo: laState.srNo||1, srName: srName });
+      delete laState._newSrName;
       guts.forEach(g => DB.process3aGuts.push({ id: newId(), process3aId: id, gutNumber: g.num, area: g.area, landType: g.landType || 'Private Land' }));
     }
     saveDB(); showToast('3A Details saved! Now proceed to JM.', 'success'); renderLATabs();
@@ -2213,13 +2300,11 @@ function renderTab_JM(hasUpper3A) {
       </div>`;
     return;
   }
-  const existing = DB.processJM.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
-  const rec3A = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
+  const existing = DB.processJM.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && (x.srNo||1) === (laState.srNo||1));
+  const rec3A = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A' && (x.srNo||1) === (laState.srNo||1));
   const guts3A = DB.process3aGuts.filter(g => g.process3aId === rec3A?.id);
   const jmGuts = existing ? DB.processJMGuts.filter(g => g.processJMId === existing.id) : [];
   const isAdmin = currentUser.role === 'admin';
-  const isAddlVil = !!(DB.villages.find(v=>v.id===laState.villageId)?.isAddl);
-
   // Build gut rows: 3A guts + any extra JM guts not in 3A
   const extraJmGuts = jmGuts.filter(j => !guts3A.find(g => g.gutNumber === j.gutNumber));
 
@@ -2233,9 +2318,7 @@ function renderTab_JM(hasUpper3A) {
         </div>
       </div>
       <div class="panel-body">
-        ${isAddlVil ? `<div class="alert" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;margin-bottom:16px;font-size:13px">
-          ℹ This is an <strong>Add Village</strong>. JM date and guts are pre-filled from the main village JM (add guts only). All fields are editable.
-        </div>` : ''}
+
         <div class="form-grid cols-2">
           <div class="field"><label class="required">JM Date</label>
             <input type="date" id="fjm_date" value="${existing?.jmDate||''}"></div>
@@ -2270,7 +2353,7 @@ function renderTab_JM(hasUpper3A) {
                 const jg = jmGuts.find(j => j.gutNumber === g.gutNumber);
                 const isGovt = g.landType === 'Government Land';
                 const modVal = jg?.modArea || '';
-                const isAddl = modVal && parseFloat(modVal) > parseFloat(g.area);
+                const isAddl = false; // Additional area now handled by new 3A Sr.
                 return `<tr id="jmrow_${i}" data-gut="${g.gutNumber}" data-area3a="${g.area}" data-isnew="0">
                   <td class="mono">${g.gutNumber}</td>
                   <td class="mono">${g.area}</td>
@@ -2278,7 +2361,7 @@ function renderTab_JM(hasUpper3A) {
                   <td><input type="number" class="inlineInput jm-mod-input" id="jm_mod_${i}"
                     value="${modVal}" placeholder="0.00" style="width:130px"
                     oninput="highlightJMRow(this, ${parseFloat(g.area)||0})"></td>
-                  <td id="jmstatus_${i}">${isAddl ? '<span style="color:#f59e0b;font-weight:600;font-size:11px">⚠ Additional Area</span>' : '<span style="color:#888;font-size:11px">Normal</span>'}</td>
+        
                 </tr>`;
               }).join('')}
               ${extraJmGuts.map((jg, ei) => {
@@ -2299,7 +2382,7 @@ function renderTab_JM(hasUpper3A) {
                     <option value="Government Land">🏛 Govt</option>
                     <option value="Forest Land">🌳 Forest</option>
                   </select></td>
-                  <td><span style="color:#f59e0b;font-weight:600;font-size:11px">⚠ Additional Area</span></td>
+
                   <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">✕</button></td>
                 </tr>`;
               }).join('')}
@@ -2308,7 +2391,7 @@ function renderTab_JM(hasUpper3A) {
         </div>
         <div style="text-align:right;font-size:13px;color:var(--text-dim);margin-top:6px;padding-right:4px">
           Total Area (excl. add guts): <strong style="color:var(--text)">${
-            jmGuts.filter(g=>!g.isAddl).reduce((s,g)=>s+(parseFloat(g.modArea)||0),0).toFixed(4)
+            jmGuts.reduce((s,g)=>s+(parseFloat(g.modArea)||0),0).toFixed(4)
           } Ha</strong>
         </div>
         <div class="mt-4 flex gap-2">
@@ -2321,7 +2404,7 @@ function renderTab_JM(hasUpper3A) {
         </div>
         <div id="jm-new-villages-body"></div>
         <div class="mt-2">
-          <button class="btn btn-secondary btn-sm" id="jm-add-village-btn">🏘 Add New Village</button>
+
         </div>
         <div class="mt-4">
           <button class="btn btn-primary" id="saveJM_btn">💾 Save JM Details</button>
@@ -2340,26 +2423,6 @@ function renderTab_JM(hasUpper3A) {
   let newGutCount = 0;
   // New Village button
   let _newVilCount = 0;
-  document.getElementById('jm-add-village-btn').addEventListener('click', function() {
-    const idx = _newVilCount++;
-    const body = document.getElementById('jm-new-villages-body');
-    const div = document.createElement('div');
-    div.id = 'jm-newvil-' + idx;
-    div.style.cssText = 'border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:14px;margin-bottom:12px;background:rgba(245,158,11,0.05)';
-    div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
-      + '<strong style="color:#f59e0b">New Village #' + (idx+1) + '</strong>'
-      + '<button class="btn btn-danger btn-sm" onclick="this.closest(\'div\').remove()">✕ Remove</button>'
-      + '</div>'
-      + '<div class="form-grid cols-2" style="margin-bottom:10px">'
-      + '<div class="field" style="margin:0"><label>Village Name</label><input id="jm-nv-name-' + idx + '" placeholder="Village name" style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text)"></div>'
-      + '<div class="field" style="margin:0"><label>Taluka</label><input id="jm-nv-taluka-' + idx + '" placeholder="Taluka name" style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text)"></div>'
-      + '</div>'
-      + '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="padding:5px 8px;font-size:11px;background:var(--card);text-align:left">Gut No.</th><th style="padding:5px 8px;font-size:11px;background:var(--card)">Area (Ha)</th><th style="padding:5px 8px;font-size:11px;background:var(--card)">Land Type</th><th></th></tr></thead>'
-      + '<tbody id="jm-nv-guts-' + idx + '"></tbody></table>'
-      + '<button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="addNewVilGutRow(' + idx + ')">+ Add Gut</button>';
-    body.appendChild(div);
-    addNewVilGutRow(idx);
-  });
 
   document.getElementById('jm-add-gut-btn').addEventListener('click', function() {
     const idx = 'n' + (newGutCount++);
@@ -2613,16 +2676,14 @@ function renderTab_3D(hasJM) {
       </div>`;
     return;
   }
-  const isAddlVil = !!(DB.villages.find(v=>v.id===laState.villageId)?.isAddl);
-  const existing = DB.process3D.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
-  const jmRec  = DB.processJM.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
+  const existing = DB.process3D.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && (x.srNo||1) === (laState.srNo||1));
+  const jmRec  = DB.processJM.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && (x.srNo||1) === (laState.srNo||1));
   const jmGuts = DB.processJMGuts.filter(g => g.processJMId === jmRec?.id);
   const d3Guts = existing ? DB.process3DGuts.filter(g => g.process3DId === existing.id) : [];
-  const rec3A  = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
+  const rec3A  = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A' && (x.srNo||1) === (laState.srNo||1));
   const guts3A = DB.process3aGuts.filter(g => g.process3aId === rec3A?.id);
   const isAdmin = currentUser.role === 'admin';
-  // For add villages: use 3A guts (pre-filled from JM) as source; gut/area/landtype readonly
-  const gutSource = isAddlVil ? guts3A : jmGuts;
+  const gutSource = jmGuts;
 
   document.getElementById('la-tab-content').innerHTML = `
     <div class="panel">
@@ -2634,9 +2695,7 @@ function renderTab_3D(hasJM) {
         </div>
       </div>
       <div class="panel-body">
-        ${isAddlVil ? `<div class="alert" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;margin-bottom:16px;font-size:13px">
-          ℹ This is an <strong>Add Village</strong>. Gut No, Area and Land Type are pre-filled from 3A (add guts only). Enter notification date and other details.
-        </div>` : ''}
+
         <div class="form-grid cols-2" style="max-width:700px">
           <div class="field">
             <label class="required">3D Notification Date</label>
@@ -2661,7 +2720,7 @@ function renderTab_3D(hasJM) {
               ${gutSource.map((g, i) => {
                 const dg = d3Guts.find(d => d.gutNumber === g.gutNumber);
                 // For add village: area from g.area (3A guts); for main: g.modArea (JM guts)
-                const gutArea = isAddlVil ? (g.area||g.modArea) : g.modArea;
+                const gutArea = g.modArea;
                 const g3A = isAddlVil ? g : (guts3A ? guts3A.find(x => x.gutNumber === g.gutNumber) : null);
                 const isGovt = g3A && g3A.landType === 'Government Land';
                 return `<tr>
@@ -2692,16 +2751,16 @@ function renderTab_3D(hasJM) {
     const guts = gutSource.map((g, i) => {
       const el = document.getElementById('d3_ben_' + i);
       const lt = el ? el.getAttribute('data-landtype') : 'Private Land';
-      const gutArea = isAddlVil ? (g.area||g.modArea) : g.modArea;
+      const gutArea = g.modArea;
       return { gutNumber: g.gutNumber, area: gutArea, beneficiary: el ? el.value : '', landType: lt || 'Private Land' };
     });
     if (existing) {
-      existing.notifDate = date; existing.laLength3d = laLength3d;
+      existing.notifDate = date; existing.laLength3d = laLength3d; existing.srNo = laState.srNo||1;
       DB.process3DGuts = DB.process3DGuts.filter(g => g.process3DId !== existing.id);
       guts.forEach(g => DB.process3DGuts.push({ id: newId(), process3DId: existing.id, ...g }));
     } else {
       const id = newId();
-      DB.process3D.push({ id, projectId: laState.projectId, villageId: laState.villageId, notifDate: date, laLength3d });
+      DB.process3D.push({ id, projectId: laState.projectId, villageId: laState.villageId, notifDate: date, laLength3d, srNo: laState.srNo||1, srName: rec3A?.srName||'Main' });
       guts.forEach(g => DB.process3DGuts.push({ id: newId(), process3DId: id, ...g }));
     }
     saveDB(); showToast('3D Declaration saved! Now proceed to 3G.', 'success'); renderLATabs();
@@ -2727,20 +2786,13 @@ function renderTab_3G(has3D) {
       </div>`;
     return;
   }
-  const isAddlVil = !!(DB.villages.find(v=>v.id===laState.villageId)?.isAddl);
-  const existing = DB.process3G.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
-  const d3Rec  = DB.process3D.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId);
+  const existing = DB.process3G.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && (x.srNo||1) === (laState.srNo||1));
+  const d3Rec  = DB.process3D.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && (x.srNo||1) === (laState.srNo||1));
   const allD3Guts = DB.process3DGuts.filter(g => g.process3DId === d3Rec?.id);
 
-  // Get land type from 3A guts for reference
-  const rec3A = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A');
-  const guts3A = DB.process3aGuts.filter(g => g.process3aId === rec3A?.id);
-
-  // Separate private vs govt — for add villages use landType stored in 3D guts directly
+  // Separate private vs govt using landType stored in 3D guts
   const privateGuts = allD3Guts.filter(g => {
-    if (isAddlVil) return g.landType !== 'Government Land';
-    const g3A = guts3A.find(x => x.gutNumber === g.gutNumber);
-    return !g3A || g3A.landType !== 'Government Land';
+    return g.landType !== 'Government Land';
   });
   const govtGuts = allD3Guts.filter(g => {
     if (isAddlVil) return g.landType === 'Government Land';
