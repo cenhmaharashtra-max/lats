@@ -1079,6 +1079,35 @@ async function renderViewAs() {
 // ═══════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════
+function renderVillageWiseTable(villages, projects, filterProjectId) {
+  const filtered = filterProjectId === 'all' ? villages : villages.filter(v => String(v.projectId) === String(filterProjectId));
+  if (filtered.length === 0) return `<div class="empty-state"><div class="icon">🏘</div><h3>No Villages</h3><p>No villages found for this project.</p></div>`;
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>Village</th><th>Taluka</th><th>Project</th><th style="text-transform:none">3a</th><th style="text-transform:none">3A</th><th>JM</th><th>3D</th><th>3G</th><th>Status</th></tr></thead>
+    <tbody>${filtered.map(v => {
+      const proj = projects.find(p => p.id === v.projectId);
+      const has3a = DB.process3a.some(x => x.villageId === v.id && x.projectId === v.projectId && x.type === 'lower3a');
+      const rec3A = DB.process3a.find(x => x.villageId === v.id && x.projectId === v.projectId && x.type === 'upper3A');
+      const has3A = rec3A && DB.process3aGuts.some(g => g.process3aId === rec3A.id);
+      const hasJM = DB.processJM.some(x => x.villageId === v.id && x.projectId === v.projectId);
+      const has3D = DB.process3D.some(x => x.villageId === v.id && x.projectId === v.projectId);
+      const has3G = DB.process3G.some(x => x.villageId === v.id && x.projectId === v.projectId);
+      const statusText = has3G ? '3G Done' : has3D ? '3D Done' : hasJM ? 'JM Done' : has3A ? '3A Done' : has3a ? '3a Done' : 'Pending';
+      const statusColor = has3G ? 'badge-complete' : has3D ? 'badge-3d' : hasJM ? 'badge-jm' : has3A ? 'badge-3a' : has3a ? 'badge-user' : 'badge-pending';
+      return `<tr>
+        <td><strong>${v.name}</strong></td><td>${v.taluka}</td>
+        <td><span class="chip">${proj?.name || '—'}</span></td>
+        <td style="text-align:center">${has3a ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
+        <td style="text-align:center">${has3A ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
+        <td style="text-align:center">${hasJM ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
+        <td style="text-align:center">${has3D ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
+        <td style="text-align:center">${has3G ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
+        <td><span class="badge ${statusColor}">${statusText}</span></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
 function renderDashboard() {
   const myProjects = getMyProjects();
   const myProjectIds = myProjects.map(function(p){ return p.id; });
@@ -1286,36 +1315,25 @@ function renderDashboard() {
     </div>
 
     <div class="panel">
-      <div class="panel-header"><h3>Village Wise Status</h3></div>
-      <div class="panel-body">
+      <div class="panel-header">
+        <h3>Village Wise Status</h3>
+        <select id="vws-project-filter" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer">
+          <option value="all">All Projects</option>
+          ${myProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="panel-body" id="vws-body">
         ${myVillages.length === 0 ? `<div class="empty-state"><div class="icon">🏘</div><h3>No Villages</h3><p>Add villages under a project from Village Master.</p></div>` :
-        `<div class="table-wrap"><table>
-          <thead><tr><th>Village</th><th>Taluka</th><th>Project</th><th style="text-transform:none">3a</th><th style="text-transform:none">3A</th><th>JM</th><th>3D</th><th>3G</th><th>Status</th></tr></thead>
-          <tbody>${myVillages.map(v => {
-            const proj = DB.projects.find(p => p.id === v.projectId);
-            const has3a = DB.process3a.some(x => x.villageId === v.id && x.projectId === v.projectId && x.type === 'lower3a');
-            const rec3A = DB.process3a.find(x => x.villageId === v.id && x.projectId === v.projectId && x.type === 'upper3A');
-            const has3A = rec3A && DB.process3aGuts.some(g => g.process3aId === rec3A.id);
-            const hasJM = DB.processJM.some(x => x.villageId === v.id && x.projectId === v.projectId);
-            const has3D = DB.process3D.some(x => x.villageId === v.id && x.projectId === v.projectId);
-            const has3G = DB.process3G.some(x => x.villageId === v.id && x.projectId === v.projectId);
-            let statusText = has3G ? '3G Done' : has3D ? '3D Done' : hasJM ? 'JM Done' : has3A ? '3A Done' : has3a ? '3a Done' : 'Pending';
-            let statusColor = has3G ? 'badge-complete' : has3D ? 'badge-3d' : hasJM ? 'badge-jm' : has3A ? 'badge-3a' : has3a ? 'badge-user' : 'badge-pending';
-            return `<tr>
-              <td><strong>${v.name}</strong></td><td>${v.taluka}</td>
-              <td><span class="chip">${proj?.name || '—'}</span></td>
-              <td style="text-align:center" title="3a CALA Notification">${has3a ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
-              <td style="text-align:center" title="3A Gut-wise Area">${has3A ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
-              <td style="text-align:center">${hasJM ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
-              <td style="text-align:center">${has3D ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
-              <td style="text-align:center">${has3G ? '<span style="color:#4ade80">✅</span>' : '<span style="color:#888">—</span>'}</td>
-              <td><span class="badge ${statusColor}">${statusText}</span></td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table></div>`}
+        renderVillageWiseTable(myVillages, myProjects, 'all')}
       </div>
     </div>
   `;
+  const vwsSel = document.getElementById('vws-project-filter');
+  if (vwsSel) {
+    vwsSel.addEventListener('change', function() {
+      document.getElementById('vws-body').innerHTML = renderVillageWiseTable(myVillages, myProjects, this.value);
+    });
+  }
 }
 
 // ═══════════════════════════════════════════════════════
