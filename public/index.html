@@ -1316,11 +1316,13 @@ function renderDashboard() {
 
     <div class="panel">
       <div class="panel-header">
-        <h3>Village Wise Status</h3>
-        <select id="vws-project-filter" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer">
-          <option value="all">All Projects</option>
-          ${myProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-        </select>
+        <div style="display:flex;align-items:center;gap:12px">
+          <h3>Village Wise Status</h3>
+          <select id="vws-project-filter" style="background:#1e293b;color:#f1f5f9;border:1.5px solid #475569;border-radius:6px;padding:5px 10px;font-size:13px;font-weight:500;cursor:pointer;outline:none">
+            <option value="all" style="background:#1e293b;color:#f1f5f9">All Projects</option>
+            ${myProjects.map(p => `<option value="${p.id}" style="background:#1e293b;color:#f1f5f9">${p.name}</option>`).join('')}
+          </select>
+        </div>
       </div>
       <div class="panel-body" id="vws-body">
         ${myVillages.length === 0 ? `<div class="empty-state"><div class="icon">🏘</div><h3>No Villages</h3><p>Add villages under a project from Village Master.</p></div>` :
