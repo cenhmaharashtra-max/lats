@@ -2401,15 +2401,7 @@ function renderTab_JM(hasUpper3A) {
         <div class="mt-4 flex gap-2">
           <button class="btn btn-secondary btn-sm" id="jm-add-gut-btn">➕ Add New Gut Number</button>
         </div>
-        <div class="divider"></div>
-        <h4 class="mb-4" style="color:#f59e0b">➕ New Villages Found During JM</h4>
-        <div class="alert alert-warning" style="margin-bottom:12px;font-size:12px">
-          ⚠ If JM reveals a completely new village not in the original 3A, add it here. A new 3A (Add) must be published before 3D can proceed for these villages.
-        </div>
-        <div id="jm-new-villages-body"></div>
-        <div class="mt-2">
 
-        </div>
         <div class="mt-4">
           <button class="btn btn-primary" id="saveJM_btn">💾 Save JM Details</button>
         </div>
@@ -2554,95 +2546,15 @@ function renderTab_JM(hasUpper3A) {
       showToast('✅ JM saved! Extra gut area moved to new village "' + addlVilName + '". You can see it in Village Master and proceed with 3A → 3D → 3G for it separately.', 'success');
     }
 
-    // Handle completely new villages found during JM
-    const newVilDivs = document.querySelectorAll('[id^="jm-newvil-"]');
-    newVilDivs.forEach(function(div) {
-      const idx = div.id.replace('jm-newvil-','');
-      const vilName = document.getElementById('jm-nv-name-' + idx)?.value.trim();
-      const vilTaluka = document.getElementById('jm-nv-taluka-' + idx)?.value.trim();
-      if (!vilName) return;
-
-      // Create new village
-      let newVil = DB.villages.find(v => v.projectId === laState.projectId && v.name === vilName);
-      if (!newVil) {
-        const newVilId = newId();
-        DB.villages.push({ id: newVilId, projectId: laState.projectId, name: vilName, taluka: vilTaluka||'', isAddl: true });
-        newVil = DB.villages.find(v => v.id === newVilId);
-      }
-
-      // Collect guts for this new village
-      const nvGuts = [];
-      const base3a = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'lower3a');
-      let gi = 0;
-      while (true) {
-        const numEl = document.getElementById('jm-nv-gut-num-' + idx + '-' + gi);
-        if (!numEl && gi > 30) break;
-        if (numEl && numEl.value.trim()) {
-          const areaEl = document.getElementById('jm-nv-gut-area-' + idx + '-' + gi);
-          const typeEl = document.getElementById('jm-nv-gut-type-' + idx + '-' + gi);
-          nvGuts.push({ gutNumber: numEl.value.trim(), modArea: areaEl?.value||'', landType: typeEl?.value||'Private Land' });
-        }
-        gi++;
-      }
-      if (!nvGuts.length) return;
-
-      // Copy 3a to new village
-      if (base3a && !DB.process3a.find(x => x.villageId === newVil.id && x.projectId === laState.projectId && x.type === 'lower3a')) {
-        DB.process3a.push({ id: newId(), projectId: laState.projectId, villageId: newVil.id,
-          type: 'lower3a', notifDate: base3a.notifDate, calaPost: base3a.calaPost, calaName: base3a.calaName, calaMobile: base3a.calaMobile, isAdditional: true });
-      }
-
-      // Create 3A(Add) for new village — needs to be published separately before 3D
-      if (!DB.process3a.find(x => x.villageId === newVil.id && x.projectId === laState.projectId && x.type === 'upper3A')) {
-        const addl3AId = newId();
-        DB.process3a.push({ id: addl3AId, projectId: laState.projectId, villageId: newVil.id, type: 'upper3A', notifDate: '', isAdditional: true });
-        nvGuts.forEach(function(g) {
-          DB.process3aGuts.push({ id: newId(), process3aId: addl3AId, gutNumber: g.gutNumber, area: g.modArea, landType: g.landType });
-        });
-      }
-
-      // Create JM for new village
-      if (!DB.processJM.find(x => x.villageId === newVil.id && x.projectId === laState.projectId)) {
-        const newJMId = newId();
-        DB.processJM.push({ id: newJMId, projectId: laState.projectId, villageId: newVil.id, jmDate, sheetDate, laLengthJm });
-        nvGuts.forEach(function(g) {
-          DB.processJMGuts.push({ id: newId(), processJMId: newJMId, gutNumber: g.gutNumber, modArea: g.modArea });
-        });
-      }
-    });
-
     saveDB();
-    if (newVilDivs.length > 0) {
-      showToast('✅ New villages created! Enter 3A (Add) notification before proceeding to 3D.', 'success');
-    } else {
-      // Clean up any existing Add village for this village if no more addl guts
-      const baseVillage = DB.villages.find(v => v.id === laState.villageId);
-      const addlVilName = baseVillage.name + ' Add (' + baseVillage.taluka + ')';
-      const addlVil = DB.villages.find(v => v.projectId === laState.projectId && v.name === addlVilName);
-      if (addlVil) {
-        DB.processJM = DB.processJM.filter(x => x.villageId !== addlVil.id);
-        DB.process3a = DB.process3a.filter(x => x.villageId !== addlVil.id);
-        DB.villages  = DB.villages.filter(v => v.id !== addlVil.id);
-      }
-      showToast('JM Details saved! Now proceed to 3D.', 'success');
-    }
+    showToast('JM Details saved! Now proceed to 3D.', 'success');
     renderLATabs();
   });
 
   if (isAdmin && existing && document.getElementById('del_jm_btn')) {
     document.getElementById('del_jm_btn').addEventListener('click', function() {
       confirmModal('Delete <strong>JM entry</strong>? This will also delete 3D and 3G data for this village.', function() {
-        // Also remove Add village
-        const baseVillage = DB.villages.find(v => v.id === laState.villageId);
-        if (baseVillage) {
-          const addlVil = DB.villages.find(v => v.projectId === laState.projectId && v.name === baseVillage.name + ' Add (' + baseVillage.taluka + ')');
-          if (addlVil) {
-            DB.processJM = DB.processJM.filter(x => x.villageId !== addlVil.id);
-            DB.process3a = DB.process3a.filter(x => x.villageId !== addlVil.id);
-            DB.villages  = DB.villages.filter(v => v.id !== addlVil.id);
-          }
-        }
-        deleteFromStage(3, laState.villageId, laState.projectId);
+          deleteFromStage(3, laState.villageId, laState.projectId);
         showToast('JM and downstream data deleted.', 'info'); renderLATabs();
       });
     });
@@ -2725,7 +2637,7 @@ function renderTab_3D(hasJM) {
                 const dg = d3Guts.find(d => d.gutNumber === g.gutNumber);
                 // For add village: area from g.area (3A guts); for main: g.modArea (JM guts)
                 const gutArea = g.modArea;
-                const g3A = isAddlVil ? g : (guts3A ? guts3A.find(x => x.gutNumber === g.gutNumber) : null);
+                const g3A = guts3A ? guts3A.find(x => x.gutNumber === g.gutNumber) : null;
                 const isGovt = g3A && g3A.landType === 'Government Land';
                 return `<tr>
                   <td class="mono">${g.gutNumber}</td>
@@ -2739,7 +2651,7 @@ function renderTab_3D(hasJM) {
           </table>
         </div>
         <div style="text-align:right;font-size:13px;color:var(--text-dim);margin-top:6px;padding-right:4px">
-          Total Area: <strong style="color:var(--text)">${gutSource.reduce((s,g)=>s+(parseFloat(isAddlVil?g.area:g.modArea)||0),0).toFixed(4)} Ha</strong>
+          Total Area: <strong style="color:var(--text)">${gutSource.reduce((s,g)=>s+(parseFloat(g.modArea)||0),0).toFixed(4)} Ha</strong>
         </div>
         <div class="mt-4">
           <button class="btn btn-primary" id="save3D_btn">💾 Save 3D Details</button>
@@ -2798,11 +2710,7 @@ function renderTab_3G(has3D) {
   const privateGuts = allD3Guts.filter(g => {
     return g.landType !== 'Government Land';
   });
-  const govtGuts = allD3Guts.filter(g => {
-    if (isAddlVil) return g.landType === 'Government Land';
-    const g3A = guts3A.find(x => x.gutNumber === g.gutNumber);
-    return g3A && g3A.landType === 'Government Land';
-  });
+  const govtGuts = allD3Guts.filter(g => g.landType === 'Government Land');
 
   const g3Guts = existing ? DB.process3GGuts.filter(g => g.process3GId === existing.id) : [];
   const allGovt = govtGuts.length === allD3Guts.length && allD3Guts.length > 0;
@@ -2821,9 +2729,7 @@ function renderTab_3G(has3D) {
       </div>
       <div class="panel-body">
 
-        ${isAddlVil ? `<div class="alert" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;margin-bottom:16px;font-size:13px">
-          ℹ This is an <strong>Add Village</strong>. Guts are pre-filled from 3D (add guts only). Enter notification date and compensation amounts.
-        </div>` : ''}
+
         ${govtGuts.length > 0 ? `
         <div class="alert alert-info" style="margin-bottom:16px">
           🏛 <strong>${govtGuts.length} Government Land gut(s)</strong> — 
