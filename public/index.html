@@ -958,6 +958,11 @@ const adminNav = [
   ]},
   { section: 'LA Process', items: [
     { id: 'la-process', label: 'LA Process Entry', icon: '📝' },
+  ]},
+  { section: 'NH Management', items: [
+    { id: 'nh-management', label: 'NH Management', icon: '🛣' },
+    { id: 'nh-contracts', label: 'Contracts', icon: '📄' },
+    { id: 'project-types', label: 'Project Types', icon: '🗂' },
   ]}
 ];
 
@@ -969,6 +974,10 @@ const userNav = [
   { section: 'Work', items: [
     { id: 'villages', label: 'Village Master', icon: '🏘' },
     { id: 'la-process', label: 'LA Process Entry', icon: '📝' },
+  ]},
+  { section: 'NH Management', items: [
+    { id: 'nh-management', label: 'NH Management', icon: '🛣' },
+    { id: 'nh-contracts', label: 'Contracts', icon: '📄' },
   ]}
 ];
 
@@ -1016,7 +1025,8 @@ function navigate(page, params) {
   
   const titles = {
     dashboard: 'Dashboard', projects: 'Projects', users: 'User Management',
-    villages: 'Village Master', 'la-process': 'LA Process Entry', reports: 'Reports'
+    villages: 'Village Master', 'la-process': 'LA Process Entry', reports: 'Reports',
+    'nh-management': 'NH Management', 'nh-contracts': 'Contracts', 'project-types': 'Project Types'
   };
   document.getElementById('page-title').textContent = titles[page] || page;
   document.getElementById('page-breadcrumb').textContent = 'Home / ' + (titles[page] || page);
@@ -1031,6 +1041,9 @@ function navigate(page, params) {
   else if (page === 'la-process') renderLAProcess(params);
   else if (page === 'reports') renderReports();
   else if (page === 'view-as') renderViewAs();
+  else if (page === 'nh-management') renderNHManagement();
+  else if (page === 'nh-contracts') renderContracts();
+  else if (page === 'project-types') renderProjectTypes();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -3481,6 +3494,517 @@ function showToast(msg, type = 'info') {
 }
 
 // Key enter for login already set above
+
+// ═══════════════════════════════════════════════════════
+// NH MANAGEMENT MODULE
+// ═══════════════════════════════════════════════════════
+
+// ── State ──
+let nhState = { nhList:[], stretches:{}, contracts:[], projectTypes:[], selectedNH:null };
+
+async function loadNHData() {
+  try {
+    const [nhs, contracts, ptypes] = await Promise.all([
+      api('GET','/api/nh'),
+      api('GET','/api/nh/contracts/all'),
+      api('GET','/api/nh/project-types'),
+    ]);
+    nhState.nhList     = nhs;
+    nhState.contracts  = contracts;
+    nhState.projectTypes = ptypes;
+  } catch(e) { showToast('Failed to load NH data','error'); }
+}
+
+// ── Project Types ──
+async function renderProjectTypes() {
+  const c = document.getElementById('page-content');
+  c.innerHTML = '<div style="padding:20px;color:var(--text-dim)">Loading...</div>';
+  await loadNHData();
+  const isAdmin = currentUser.role === 'admin';
+  c.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Project Types</h3>
+        ${isAdmin ? '<button class="btn btn-primary btn-sm" id="add-ptype-btn">+ Add Type</button>' : ''}
+      </div>
+      <div class="panel-body" style="padding:0">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--surface)">
+            <th style="padding:12px 18px;text-align:left;font-size:12px;color:var(--text-dim);text-transform:uppercase">#</th>
+            <th style="padding:12px 18px;text-align:left;font-size:12px;color:var(--text-dim);text-transform:uppercase">Type Name</th>
+            ${isAdmin ? '<th style="padding:12px 18px;text-align:left;font-size:12px;color:var(--text-dim);text-transform:uppercase">Actions</th>' : ''}
+          </tr></thead>
+          <tbody id="ptype-tbody"></tbody>
+        </table>
+      </div>
+    </div>`;
+  renderPTypeRows();
+  if (isAdmin) {
+    document.getElementById('add-ptype-btn').addEventListener('click', () => openPTypeModal(null));
+  }
+}
+
+function renderPTypeRows() {
+  const tbody = document.getElementById('ptype-tbody');
+  if (!tbody) return;
+  if (!nhState.projectTypes.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="padding:24px;text-align:center;color:var(--text-dim)">No project types yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '';
+  nhState.projectTypes.forEach((pt,i) => {
+    const tr = document.createElement('tr');
+    tr.style.cssText = 'border-top:1px solid var(--border)';
+    tr.innerHTML = `<td style="padding:12px 18px;color:var(--text-dim)">${i+1}</td>
+      <td style="padding:12px 18px;font-weight:600">${pt.name}</td>
+      ${currentUser.role==='admin' ? `<td style="padding:12px 18px">
+        <button class="btn btn-secondary btn-sm" onclick="openPTypeModal(${pt.id})">✎ Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deletePType(${pt.id})" style="margin-left:6px">🗑</button>
+      </td>` : ''}`;
+    tbody.appendChild(tr);
+  });
+}
+
+function openPTypeModal(id) {
+  const pt = id ? nhState.projectTypes.find(x=>x.id===id) : null;
+  openModal(pt ? 'Edit Project Type' : 'Add Project Type', `
+    <div class="field"><label class="required">Type Name</label><input id="ptf-name" value="${pt?.name||''}" placeholder="e.g. Road Construction"></div>
+  `, [
+    { label:'Cancel', cls:'btn-secondary', action:closeModal },
+    { label: pt ? 'Update' : 'Add', cls:'btn-primary', action: async () => {
+      const name = document.getElementById('ptf-name').value.trim();
+      if (!name) { showToast('Name is required','error'); return; }
+      try {
+        if (pt) {
+          const r = await api('PUT','/api/nh/project-types/'+id,{name});
+          const idx = nhState.projectTypes.findIndex(x=>x.id===id);
+          nhState.projectTypes[idx] = r;
+        } else {
+          const r = await api('POST','/api/nh/project-types',{name});
+          nhState.projectTypes.push(r);
+        }
+        closeModal(); renderPTypeRows(); showToast('Saved!','success');
+      } catch(e) { showToast('Error: '+e.message,'error'); }
+    }}
+  ]);
+}
+
+async function deletePType(id) {
+  confirmModal('Delete this project type?', async () => {
+    await api('DELETE','/api/nh/project-types/'+id);
+    nhState.projectTypes = nhState.projectTypes.filter(x=>x.id!==id);
+    renderPTypeRows(); showToast('Deleted','info');
+  });
+}
+
+// ── NH Management ──
+async function renderNHManagement() {
+  const c = document.getElementById('page-content');
+  c.innerHTML = '<div style="padding:20px;color:var(--text-dim)">Loading...</div>';
+  await loadNHData();
+  const isAdmin = currentUser.role === 'admin';
+
+  c.innerHTML = `
+    <div style="display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start">
+
+      <!-- Left: NH List -->
+      <div class="panel">
+        <div class="panel-header">
+          <h3>NH Numbers</h3>
+          ${isAdmin ? '<button class="btn btn-primary btn-sm" id="add-nh-btn">+ Add NH</button>' : ''}
+        </div>
+        <div id="nh-list" style="padding:8px 0"></div>
+      </div>
+
+      <!-- Right: Stretches -->
+      <div class="panel" id="stretch-panel">
+        <div class="panel-body" style="text-align:center;padding:40px;color:var(--text-dim)">
+          <div style="font-size:36px;margin-bottom:12px">🛣</div>
+          <p>Select an NH from the left to view its stretches.</p>
+        </div>
+      </div>
+    </div>`;
+
+  renderNHList();
+  if (isAdmin) {
+    document.getElementById('add-nh-btn').addEventListener('click', () => openNHModal(null));
+  }
+}
+
+function renderNHList() {
+  const el = document.getElementById('nh-list');
+  if (!el) return;
+  if (!nhState.nhList.length) {
+    el.innerHTML = '<div style="padding:16px 20px;color:var(--text-dim);font-size:13px">No NH numbers yet.</div>';
+    return;
+  }
+  el.innerHTML = '';
+  nhState.nhList.forEach(nh => {
+    const isSelected = nhState.selectedNH && nhState.selectedNH.id === nh.id;
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:14px 18px;cursor:pointer;border-left:3px solid '+(isSelected?'var(--accent)':'transparent')+';background:'+(isSelected?'rgba(232,160,32,0.07)':'transparent')+';transition:all 0.15s';
+    div.innerHTML = `<div style="font-weight:700;color:'+(isSelected?'var(--accent)':'var(--text)')+'">${nh.nh_number}</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:2px">Ch. ${nh.chainage_from||'?'} – ${nh.chainage_to||'?'} km${nh.state?' | '+nh.state:''}</div>
+      ${nh.description ? '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">'+nh.description+'</div>' : ''}`;
+    div.addEventListener('click', () => selectNH(nh));
+    el.appendChild(div);
+  });
+}
+
+async function selectNH(nh) {
+  nhState.selectedNH = nh;
+  renderNHList();
+  const panel = document.getElementById('stretch-panel');
+  panel.innerHTML = '<div style="padding:20px;color:var(--text-dim)">Loading stretches...</div>';
+  try {
+    const stretches = await api('GET','/api/nh/'+nh.id+'/stretches');
+    nhState.stretches[nh.id] = stretches;
+    renderStretchPanel(nh);
+  } catch(e) { panel.innerHTML = '<div style="padding:20px;color:var(--text-dim)">Error loading stretches.</div>'; }
+}
+
+function renderStretchPanel(nh) {
+  const panel = document.getElementById('stretch-panel');
+  const isAdmin = currentUser.role === 'admin';
+  const stretches = nhState.stretches[nh.id] || [];
+  panel.innerHTML = `
+    <div class="panel-header">
+      <div>
+        <h3>${nh.nh_number} — Stretches</h3>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:2px">Ch. ${nh.chainage_from||'?'} to ${nh.chainage_to||'?'} km${nh.state?' | '+nh.state:''}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        ${isAdmin ? '<button class="btn btn-secondary btn-sm" id="edit-nh-btn">✎ Edit NH</button>' : ''}
+        ${isAdmin ? '<button class="btn btn-primary btn-sm" id="add-stretch-btn">+ Add Stretch</button>' : ''}
+      </div>
+    </div>
+    <div class="panel-body" style="padding:0">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--surface)">
+          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">Name</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">Chainage</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">Length (km)</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">District</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">Division</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">Project</th>
+          ${isAdmin ? '<th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">Actions</th>' : ''}
+        </tr></thead>
+        <tbody id="stretch-tbody"></tbody>
+      </table>
+    </div>`;
+
+  renderStretchRows(nh);
+  if (isAdmin) {
+    document.getElementById('edit-nh-btn').addEventListener('click', () => openNHModal(nh.id));
+    document.getElementById('add-stretch-btn').addEventListener('click', () => openStretchModal(nh.id, null));
+  }
+}
+
+function renderStretchRows(nh) {
+  const tbody = document.getElementById('stretch-tbody');
+  if (!tbody) return;
+  const stretches = nhState.stretches[nh.id] || [];
+  if (!stretches.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:24px;text-align:center;color:var(--text-dim)">No stretches yet. Add the first stretch.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '';
+  stretches.forEach(s => {
+    const proj = s.project_id ? DB.projects.find(p=>p.id===s.project_id) : null;
+    const tr = document.createElement('tr');
+    tr.style.cssText = 'border-top:1px solid var(--border)';
+    const isAdmin = currentUser.role === 'admin';
+    tr.innerHTML = `
+      <td style="padding:12px 14px;font-weight:600">${s.name||'—'}</td>
+      <td style="padding:12px 14px;font-family:monospace;font-size:13px">${s.chainage_from||'?'} – ${s.chainage_to||'?'}</td>
+      <td style="padding:12px 14px;font-family:monospace">${s.length||'—'}</td>
+      <td style="padding:12px 14px;font-size:13px">${s.district||'—'}</td>
+      <td style="padding:12px 14px;font-size:13px">${s.division||'—'}</td>
+      <td style="padding:12px 14px">${proj ? '<span class="badge badge-complete" style="font-size:11px">'+proj.name+'</span>' : '<span style="color:var(--text-dim);font-size:12px">— Not assigned</span>'}</td>
+      ${isAdmin ? `<td style="padding:12px 14px">
+        <button class="btn btn-secondary btn-sm" onclick="openStretchModal(${nh.id},${s.id})">✎</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteStretch(${nh.id},${s.id})" style="margin-left:4px">🗑</button>
+      </td>` : ''}`;
+    tbody.appendChild(tr);
+  });
+}
+
+function openNHModal(id) {
+  const nh = id ? nhState.nhList.find(x=>x.id===id) : null;
+  openModal(nh ? 'Edit NH' : 'Add NH Number', `
+    <div class="form-grid cols-2">
+      <div class="field" style="grid-column:1/-1"><label class="required">NH Number</label><input id="nhf-num" value="${nh?.nh_number||''}" placeholder="e.g. NH753C"></div>
+      <div class="field"><label class="required">Chainage From (km)</label><input id="nhf-from" type="number" value="${nh?.chainage_from||''}" placeholder="0.000"></div>
+      <div class="field"><label class="required">Chainage To (km)</label><input id="nhf-to" type="number" value="${nh?.chainage_to||''}" placeholder="100.000"></div>
+      <div class="field"><label>Total Length (km)</label><input id="nhf-len" type="number" value="${nh?.length||''}" placeholder="Auto from chainages"></div>
+      <div class="field"><label>State</label><input id="nhf-state" value="${nh?.state||''}" placeholder="e.g. Maharashtra"></div>
+      <div class="field" style="grid-column:1/-1"><label>Description</label><input id="nhf-desc" value="${nh?.description||''}" placeholder="Optional description"></div>
+    </div>
+  `, [
+    { label:'Cancel', cls:'btn-secondary', action:closeModal },
+    { label: nh ? 'Update NH' : 'Create NH', cls:'btn-primary', action: async () => {
+      const num = document.getElementById('nhf-num').value.trim();
+      const from = document.getElementById('nhf-from').value;
+      const to = document.getElementById('nhf-to').value;
+      if (!num || !from || !to) { showToast('NH Number, Chainage From and To are required','error'); return; }
+      const len = document.getElementById('nhf-len').value || (from && to ? (parseFloat(to)-parseFloat(from)).toFixed(3) : '');
+      const body = { nh_number:num, chainage_from:from, chainage_to:to, length:len,
+        state:document.getElementById('nhf-state').value, description:document.getElementById('nhf-desc').value };
+      try {
+        if (nh) {
+          const r = await api('PUT','/api/nh/'+id, body);
+          const idx = nhState.nhList.findIndex(x=>x.id===id);
+          nhState.nhList[idx] = r;
+          nhState.selectedNH = r;
+        } else {
+          const r = await api('POST','/api/nh', body);
+          nhState.nhList.push(r);
+        }
+        closeModal(); renderNHList();
+        if (nhState.selectedNH) renderStretchPanel(nhState.selectedNH);
+        showToast('Saved!','success');
+      } catch(e) { showToast('Error: '+e.message,'error'); }
+    }}
+  ]);
+  document.querySelector('.modal').classList.add('wide');
+  // Auto-calc length
+  ['nhf-from','nhf-to'].forEach(fid => {
+    document.getElementById(fid)?.addEventListener('input', () => {
+      const f = parseFloat(document.getElementById('nhf-from').value)||0;
+      const t = parseFloat(document.getElementById('nhf-to').value)||0;
+      if (f && t && t>f) document.getElementById('nhf-len').value = (t-f).toFixed(3);
+    });
+  });
+}
+
+function openStretchModal(nhId, id) {
+  const nh = nhState.nhList.find(x=>x.id===nhId);
+  const s = id ? (nhState.stretches[nhId]||[]).find(x=>x.id===id) : null;
+  // Division list from users
+  const divisions = [...new Set(DB.users ? DB.users.filter(u=>u.division).map(u=>u.division) : [])];
+  const userDiv = currentUser.division || '';
+  const divOpts = ['', ...divisions].map(d => `<option value="${d}" ${(s?.division||userDiv)===d?'selected':''}>${d||'— Select —'}</option>`).join('');
+  const projOpts = ['',...DB.projects].map(p => typeof p==='string' ? '<option value="">— Not Assigned —</option>' :
+    `<option value="${p.id}" ${s?.project_id===p.id?'selected':''}>${p.name}</option>`).join('');
+
+  openModal((s?'Edit':'Add')+' Stretch — '+nh.nh_number, `
+    <div class="form-grid cols-2">
+      <div class="field" style="grid-column:1/-1"><label class="required">Stretch Name</label><input id="sf-name" value="${s?.name||''}" placeholder="e.g. Km 23 to Km 45 Section"></div>
+      <div class="field"><label class="required">Chainage From (km)</label><input id="sf-from" type="number" value="${s?.chainage_from||''}" placeholder="${nh.chainage_from}"></div>
+      <div class="field"><label class="required">Chainage To (km)</label><input id="sf-to" type="number" value="${s?.chainage_to||''}" placeholder="${nh.chainage_to}"></div>
+      <div class="field"><label>Length (km)</label><input id="sf-len" type="number" value="${s?.length||''}" placeholder="Auto"></div>
+      <div class="field"><label>District</label><input id="sf-district" value="${s?.district||''}" placeholder="e.g. Nashik"></div>
+      <div class="field"><label>Taluka</label><input id="sf-taluka" value="${s?.taluka||''}" placeholder="e.g. Igatpuri"></div>
+      <div class="field"><label>Division</label><select id="sf-division">${divOpts}</select></div>
+      <div class="field"><label>Assign Project</label><select id="sf-project"><option value="">— Not Assigned —</option>${DB.projects.map(p=>`<option value="${p.id}" ${s?.project_id===p.id?'selected':''}>${p.name}</option>`).join('')}</select></div>
+      <div class="field" style="grid-column:1/-1"><label>Description</label><input id="sf-desc" value="${s?.description||''}" placeholder="Optional notes about this stretch"></div>
+    </div>
+  `, [
+    { label:'Cancel', cls:'btn-secondary', action:closeModal },
+    { label: s ? 'Update Stretch' : 'Add Stretch', cls:'btn-primary', action: async () => {
+      const name = document.getElementById('sf-name').value.trim();
+      const from = document.getElementById('sf-from').value;
+      const to   = document.getElementById('sf-to').value;
+      if (!name || !from || !to) { showToast('Name, Chainage From and To are required','error'); return; }
+      const len  = document.getElementById('sf-len').value || (from&&to?(parseFloat(to)-parseFloat(from)).toFixed(3):'');
+      const body = { name, chainage_from:from, chainage_to:to, length:len,
+        description:document.getElementById('sf-desc').value,
+        district:document.getElementById('sf-district').value,
+        taluka:document.getElementById('sf-taluka').value,
+        division:document.getElementById('sf-division').value,
+        project_id:document.getElementById('sf-project').value||null };
+      try {
+        if (s) {
+          const r = await api('PUT','/api/nh/stretches/'+id, body);
+          const arr = nhState.stretches[nhId];
+          arr[arr.findIndex(x=>x.id===id)] = r;
+        } else {
+          const r = await api('POST','/api/nh/'+nhId+'/stretches', body);
+          if (!nhState.stretches[nhId]) nhState.stretches[nhId] = [];
+          nhState.stretches[nhId].push(r);
+        }
+        closeModal(); renderStretchRows(nh); showToast('Saved!','success');
+      } catch(e) { showToast('Error: '+e.message,'error'); }
+    }}
+  ]);
+  document.querySelector('.modal').classList.add('wide');
+  ['sf-from','sf-to'].forEach(fid => {
+    document.getElementById(fid)?.addEventListener('input', () => {
+      const f = parseFloat(document.getElementById('sf-from').value)||0;
+      const t = parseFloat(document.getElementById('sf-to').value)||0;
+      if (f && t && t>f) document.getElementById('sf-len').value = (t-f).toFixed(3);
+    });
+  });
+}
+
+async function deleteStretch(nhId, id) {
+  confirmModal('Delete this stretch?', async () => {
+    await api('DELETE','/api/nh/stretches/'+id);
+    nhState.stretches[nhId] = nhState.stretches[nhId].filter(x=>x.id!==id);
+    renderStretchRows(nhState.nhList.find(x=>x.id===nhId));
+    showToast('Deleted','info');
+  });
+}
+
+// ── Contracts ──
+async function renderContracts() {
+  const c = document.getElementById('page-content');
+  c.innerHTML = '<div style="padding:20px;color:var(--text-dim)">Loading...</div>';
+  await loadNHData();
+  // Also load all stretches for dropdown
+  for (const nh of nhState.nhList) {
+    if (!nhState.stretches[nh.id]) {
+      nhState.stretches[nh.id] = await api('GET','/api/nh/'+nh.id+'/stretches');
+    }
+  }
+  const isAdmin = currentUser.role === 'admin';
+  c.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Contracts</h3>
+        ${isAdmin ? '<button class="btn btn-primary btn-sm" id="add-contract-btn">+ Add Contract</button>' : ''}
+      </div>
+      <div class="panel-body" style="padding:0;overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:900px">
+          <thead><tr style="background:var(--surface)">
+            ${['#','Project','Type','Contractor','Contract Price','% ±','Agreement Date','Completion Date','EOT','Actions'].map(h=>
+              `<th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase;white-space:nowrap">${h}</th>`
+            ).join('')}
+          </tr></thead>
+          <tbody id="contracts-tbody"></tbody>
+        </table>
+      </div>
+    </div>`;
+  renderContractRows();
+  if (isAdmin) document.getElementById('add-contract-btn').addEventListener('click', () => openContractModal(null));
+}
+
+function renderContractRows() {
+  const tbody = document.getElementById('contracts-tbody');
+  if (!tbody) return;
+  if (!nhState.contracts.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text-dim)">No contracts yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '';
+  nhState.contracts.forEach((ct,i) => {
+    const proj = DB.projects.find(p=>p.id===ct.project_id);
+    const ptype = nhState.projectTypes.find(t=>t.id===ct.project_type_id);
+    const pct = ct.pct_above_below !== null ? (parseFloat(ct.pct_above_below)*100).toFixed(2) : null;
+    const pctColor = pct === null ? '' : parseFloat(pct) < 0 ? '#4ade80' : '#f87171';
+    const isAdmin = currentUser.role === 'admin';
+    const tr = document.createElement('tr');
+    tr.style.cssText = 'border-top:1px solid var(--border)';
+    tr.innerHTML = `
+      <td style="padding:11px 14px;color:var(--text-dim)">${i+1}</td>
+      <td style="padding:11px 14px;font-weight:600;max-width:200px;font-size:13px">${proj?.name||'—'}</td>
+      <td style="padding:11px 14px;font-size:12px">${ptype?.name||'—'}</td>
+      <td style="padding:11px 14px;font-size:13px">${ct.contractor_name||'—'}</td>
+      <td style="padding:11px 14px;font-family:monospace;font-size:13px">${ct.contract_price ? '₹'+parseFloat(ct.contract_price).toLocaleString('en-IN') : '—'}</td>
+      <td style="padding:11px 14px;font-weight:700;color:${pctColor}">${pct !== null ? (parseFloat(pct)>=0?'+':'')+pct+'%' : '—'}</td>
+      <td style="padding:11px 14px;font-family:monospace;font-size:13px">${ct.agreement_date||'—'}</td>
+      <td style="padding:11px 14px;font-family:monospace;font-size:13px">${ct.schedule_completion||'—'}</td>
+      <td style="padding:11px 14px;font-size:13px;color:${ct.eot_date?'var(--text)':'var(--text-dim)'}">${ct.eot_date||'—'}</td>
+      ${isAdmin ? `<td style="padding:11px 14px">
+        <button class="btn btn-secondary btn-sm" onclick="openContractModal(${ct.id})">✎</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteContract(${ct.id})" style="margin-left:4px">🗑</button>
+      </td>` : '<td></td>'}`;
+    tbody.appendChild(tr);
+  });
+}
+
+function openContractModal(id) {
+  const ct = id ? nhState.contracts.find(x=>x.id===id) : null;
+  const allStretches = Object.values(nhState.stretches).flat();
+  const stretchOpts = ['',...allStretches].map(s => typeof s==='string' ? '<option value="">— Select Stretch —</option>' :
+    `<option value="${s.id}" ${ct?.stretch_id===s.id?'selected':''}>${nhState.nhList.find(n=>n.id===s.nh_id)?.nh_number||''} | ${s.name||('Ch.'+s.chainage_from+'-'+s.chainage_to)}</option>`
+  ).join('');
+  const ptOpts = ['',...nhState.projectTypes].map(pt => typeof pt==='string' ? '<option value="">— Select Type —</option>' :
+    `<option value="${pt.id}" ${ct?.project_type_id===pt.id?'selected':''}>${pt.name}</option>`
+  ).join('');
+
+  openModal((ct?'Edit':'Add')+' Contract', `
+    <div class="form-grid cols-2">
+      <div class="field"><label class="required">Project</label>
+        <select id="ctf-proj"><option value="">— Select Project —</option>${DB.projects.map(p=>`<option value="${p.id}" ${ct?.project_id===p.id?'selected':''}>${p.name}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>Project Type</label><select id="ctf-ptype"><option value="">— Select Type —</option>${nhState.projectTypes.map(pt=>`<option value="${pt.id}" ${ct?.project_type_id===pt.id?'selected':''}>${pt.name}</option>`).join('')}</select></div>
+      <div class="field" style="grid-column:1/-1"><label>Stretch</label><select id="ctf-stretch"><option value="">— Select Stretch —</option>${allStretches.map(s=>`<option value="${s.id}" ${ct?.stretch_id===s.id?'selected':''}>${nhState.nhList.find(n=>n.id===s.nh_id)?.nh_number||''} | ${s.name||('Ch.'+s.chainage_from+'-'+s.chainage_to)}</option>`).join('')}</select></div>
+      <div class="field" style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:14px;margin-top:4px"><label style="font-size:13px;font-weight:700;color:var(--accent)">Contractor Details</label></div>
+      <div class="field"><label class="required">Contractor Name</label><input id="ctf-name" value="${ct?.contractor_name||''}" placeholder="Firm / Contractor name"></div>
+      <div class="field"><label>Contact Number</label><input id="ctf-contact" value="${ct?.contractor_contact||''}" placeholder="Mobile / Phone"></div>
+      <div class="field" style="grid-column:1/-1"><label>Address</label><textarea id="ctf-addr" rows="2" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);resize:vertical">${ct?.contractor_address||''}</textarea></div>
+      <div class="field" style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:14px;margin-top:4px"><label style="font-size:13px;font-weight:700;color:var(--accent)">Bidding / Contract Details</label></div>
+      <div class="field"><label>Cost Put to Tender (₹)</label><input id="ctf-tender" type="number" value="${ct?.cost_put_to_tender||''}" placeholder="0.00" oninput="calcPct()"></div>
+      <div class="field"><label>Contract Price (₹)</label><input id="ctf-price" type="number" value="${ct?.contract_price||''}" placeholder="0.00" oninput="calcPct()"></div>
+      <div class="field"><label>% Above / Below <span style="font-size:10px;color:#4ade80">(auto)</span></label>
+        <input id="ctf-pct" readonly value="${ct?.pct_above_below!==null&&ct?.pct_above_below!==undefined?(parseFloat(ct.pct_above_below)*100).toFixed(4)+'%':''}" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)">
+      </div>
+      <div class="field"><label>Agreement Date</label><input id="ctf-agr" type="date" value="${ct?.agreement_date||''}"></div>
+      <div class="field"><label>Appointed Date</label><input id="ctf-appt" type="date" value="${ct?.appointed_date||''}"></div>
+      <div class="field"><label>Schedule Completion Date</label><input id="ctf-comp" type="date" value="${ct?.schedule_completion||''}"></div>
+      <div class="field"><label>EOT Date (if any)</label><input id="ctf-eot" type="date" value="${ct?.eot_date||''}"></div>
+      <div class="field"><label>DLP Date</label><input id="ctf-dlp" type="date" value="${ct?.dlp_date||''}"></div>
+      <div class="field" style="grid-column:1/-1"><label>Remarks</label><textarea id="ctf-remarks" rows="2" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);resize:vertical">${ct?.remarks||''}</textarea></div>
+    </div>
+  `, [
+    { label:'Cancel', cls:'btn-secondary', action:closeModal },
+    { label: ct ? 'Update Contract' : 'Save Contract', cls:'btn-primary', action: async () => {
+      const projId = document.getElementById('ctf-proj').value;
+      const name   = document.getElementById('ctf-name').value.trim();
+      if (!projId || !name) { showToast('Project and Contractor Name are required','error'); return; }
+      const body = {
+        project_id: projId, stretch_id: document.getElementById('ctf-stretch').value||null,
+        project_type_id: document.getElementById('ctf-ptype').value||null,
+        contractor_name: name, contractor_address: document.getElementById('ctf-addr').value,
+        contractor_contact: document.getElementById('ctf-contact').value,
+        cost_put_to_tender: document.getElementById('ctf-tender').value||null,
+        contract_price: document.getElementById('ctf-price').value||null,
+        agreement_date: document.getElementById('ctf-agr').value,
+        appointed_date: document.getElementById('ctf-appt').value,
+        schedule_completion: document.getElementById('ctf-comp').value,
+        eot_date: document.getElementById('ctf-eot').value,
+        dlp_date: document.getElementById('ctf-dlp').value,
+        remarks: document.getElementById('ctf-remarks').value,
+      };
+      try {
+        if (ct) {
+          const r = await api('PUT','/api/nh/contracts/'+id, body);
+          const idx = nhState.contracts.findIndex(x=>x.id===id);
+          nhState.contracts[idx] = r;
+        } else {
+          const r = await api('POST','/api/nh/contracts', body);
+          nhState.contracts.push(r);
+        }
+        closeModal(); renderContractRows(); showToast('Contract saved!','success');
+      } catch(e) { showToast('Error: '+e.message,'error'); }
+    }}
+  ]);
+  document.querySelector('.modal').classList.add('wide');
+}
+
+function calcPct() {
+  const tender = parseFloat(document.getElementById('ctf-tender')?.value)||0;
+  const price  = parseFloat(document.getElementById('ctf-price')?.value)||0;
+  const pctEl  = document.getElementById('ctf-pct');
+  if (!pctEl) return;
+  if (tender > 0 && price > 0) {
+    const pct = (1 - price/tender)*100;
+    pctEl.value = (pct >= 0 ? '+' : '') + pct.toFixed(4) + '%';
+    pctEl.style.color = pct < 0 ? '#f87171' : '#4ade80';
+  } else {
+    pctEl.value = '';
+  }
+}
+
+async function deleteContract(id) {
+  confirmModal('Delete this contract?', async () => {
+    await api('DELETE','/api/nh/contracts/'+id);
+    nhState.contracts = nhState.contracts.filter(x=>x.id!==id);
+    renderContractRows(); showToast('Deleted','info');
+  });
+}
+
 </script>
 </body>
 </html>
