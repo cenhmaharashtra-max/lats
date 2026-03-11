@@ -688,6 +688,9 @@ tr:hover td { background: var(--card-hover); }
 <div class="toast" id="toast"></div>
 
 <script>
+const MH_DISTRICTS = {"Ahmednagar": ["Ahmednagar", "Akole", "Jamkhed", "Karjat", "Kopargaon", "Nagar", "Nevasa", "Parner", "Pathardi", "Rahata", "Rahuri", "Sangamner", "Shevgaon", "Shrigonda", "Shrirampur"], "Akola": ["Akola", "Akot", "Balapur", "Barshitakli", "Murtizapur", "Patur", "Telhara"], "Amravati": ["Achalpur", "Amravati", "Anjangaon Surji", "Chandur Bazar", "Chandur Railway", "Chikhaldara", "Daryapur", "Dhamangaon Railway", "Dharni", "Morshi", "Nandgaon Khandeshwar", "Teosa", "Warud"], "Aurangabad": ["Aurangabad", "Gangapur", "Kannad", "Khuldabad", "Paithan", "Phulambri", "Sillod", "Soegaon", "Vaijapur"], "Beed": ["Ambajogai", "Ashti", "Beed", "Dharur", "Georai", "Kaij", "Manjlegaon", "Parli", "Patoda", "Shirur Kasar", "Wadwani"], "Bhandara": ["Bhandara", "Lakhandur", "Lakhani", "Mohadi", "Pauni", "Sakoli", "Tumsar"], "Buldhana": ["Buldhana", "Chikhli", "Deolgaon Raja", "Jalgaon Jamod", "Khamgaon", "Lonar", "Malkapur", "Mehkar", "Motala", "Nandura", "Sangrampur", "Shegaon", "Sindkhed Raja"], "Chandrapur": ["Ballarpur", "Bhadravati", "Brahmapuri", "Chandrapur", "Chimur", "Gondpimpri", "Jiwati", "Korpana", "Mul", "Nagbhid", "Pombhurna", "Rajura", "Sawali", "Sindewahi", "Warora"], "Dhule": ["Dhule", "Sakri", "Shirpur", "Sindkheda"], "Gadchiroli": ["Aheri", "Armori", "Bhamragad", "Chamorshi", "Corchi", "Dhanora", "Etapalli", "Gadchiroli", "Kurkheda", "Mulchera", "Sironcha", "Wadsa"], "Gondia": ["Amgaon", "Arjuni Morgaon", "Deori", "Gondiya", "Goregaon", "Sadak Arjuni", "Salekasa", "Tirora"], "Hingoli": ["Aundha Nagnath", "Basmath", "Hingoli", "Kalamnuri", "Sengaon"], "Jalgaon": ["Amalner", "Bhadgaon", "Bhusawal", "Bodwad", "Chalisgaon", "Chopda", "Dharangaon", "Erandol", "Jalgaon", "Jamner", "Muktainagar", "Pachora", "Parola", "Raver", "Yawal"], "Jalna": ["Ambad", "Badnapur", "Bhokardan", "Ghansavangi", "Jafferabad", "Jalna", "Mantha", "Partur"], "Kolhapur": ["Ajra", "Bavda", "Bhudargad", "Chandgad", "Gadhinglaj", "Hatkanangle", "Kagal", "Karvir", "Panhala", "Radhanagari", "Shahuwadi", "Shirol"], "Latur": ["Ahmadpur", "Ausa", "Chakur", "Deoni", "Jalkot", "Latur", "Nilanga", "Renapur", "Shirur Anantpal", "Udgir"], "Mumbai City": ["Mumbai City"], "Mumbai Suburban": ["Andheri", "Borivali", "Kurla"], "Nagpur": ["Bhiwapur", "Hingna", "Kamptee", "Katol", "Kuhi", "Mauda", "Nagpur Rural", "Nagpur Urban", "Narkhed", "Parseoni", "Ramtek", "Savner", "Umred"], "Nanded": ["Ardhapur", "Bhokar", "Biloli", "Deglur", "Dharmabad", "Hadgaon", "Himayatnagar", "Kandhar", "Kinwat", "Loha", "Mahoor", "Mudkhed", "Mukhed", "Naigaon", "Nanded", "Umri"], "Nandurbar": ["Akkalkuwa", "Akrani", "Nawapur", "Nandurbar", "Shahada", "Taloda"], "Nashik": ["Baglan", "Chandwad", "Deola", "Dindori", "Igatpuri", "Kalwan", "Malegaon", "Nandgaon", "Nashik", "Niphad", "Peint", "Sinnar", "Surgana", "Trimbakeshwar", "Yeola"], "Osmanabad": ["Bhum", "Kalamb", "Lohara", "Osmanabad", "Paranda", "Tuljapur", "Umarga", "Washi"], "Palghar": ["Dahanu", "Jawhar", "Mokhada", "Palghar", "Talasari", "Vasai", "Vikramgad", "Wada"], "Parbhani": ["Gangakhed", "Jintur", "Manwath", "Palam", "Parbhani", "Pathri", "Purna", "Sailu", "Sonpeth"], "Pune": ["Ambegaon", "Baramati", "Bhor", "Daund", "Haveli", "Indapur", "Junnar", "Khed", "Maval", "Mulshi", "Pune City", "Purandar", "Shirur", "Velhe"], "Raigad": ["Alibag", "Karjat", "Khalapur", "Mahad", "Mangaon", "Mhasla", "Murud", "Panvel", "Pen", "Poladpur", "Roha", "Shrivardhan", "Sudhagad", "Tala", "Uran"], "Ratnagiri": ["Chiplun", "Dapoli", "Guhagar", "Khed", "Lanja", "Mandangad", "Rajapur", "Ratnagiri", "Sangameshwar"], "Sangli": ["Atpadi", "Jat", "Kadegaon", "Kavathemahankal", "Khanapur", "Miraj", "Palus", "Shirala", "Tasgaon", "Walwa"], "Satara": ["Jaoli", "Karad", "Khandala", "Khatav", "Koregaon", "Mahabaleshwar", "Man", "Patan", "Phaltan", "Satara", "Wai"], "Sindhudurg": ["Devgad", "Dodamarg", "Kankavali", "Kudal", "Malvan", "Sawantwadi", "Vaibhavwadi", "Vengurla"], "Solapur": ["Akkalkot", "Barshi", "Karmala", "Madha", "Malshiras", "Mangalvedhe", "Mohol", "North Solapur", "Pandharpur", "Sangola", "South Solapur"], "Thane": ["Ambarnath", "Bhiwandi", "Kalyan", "Murbad", "Shahapur", "Thane", "Ulhasnagar"], "Wardha": ["Arvi", "Ashti", "Deoli", "Hinganghat", "Karanja", "Samudrapur", "Seloo", "Wardha"], "Washim": ["Karanja", "Malegaon", "Mangrulpir", "Manora", "Risod", "Washim"], "Yavatmal": ["Arni", "Babulgaon", "Darwha", "Digras", "Ghatanji", "Kalamb", "Kelapur", "Mahagaon", "Maregaon", "Ner", "Pusad", "Ralegaon", "Umarkhed", "Wani", "Yavatmal", "Zari Jamni"]};
+const MH_DISTRICT_NAMES = ["Ahmednagar", "Akola", "Amravati", "Aurangabad", "Beed", "Bhandara", "Buldhana", "Chandrapur", "Dhule", "Gadchiroli", "Gondia", "Hingoli", "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban", "Nagpur", "Nanded", "Nandurbar", "Nashik", "Osmanabad", "Palghar", "Parbhani", "Pune", "Raigad", "Ratnagiri", "Sangli", "Satara", "Sindhudurg", "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"];
+
 // ═══════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════
 // DATA STORE  (in-memory cache — synced from backend)
@@ -3791,7 +3794,15 @@ function renderStretchRows(nh) {
         <span style="background:rgba(232,160,32,0.1);border:1px solid rgba(232,160,32,0.3);border-radius:4px;padding:2px 7px">${parseFloat(s.chainage_to).toFixed(3)}</span>
       </td>
       <td style="padding:12px 14px;font-family:monospace;font-weight:600">${len}</td>
-      <td style="padding:12px 14px;font-size:13px">${[s.district,s.taluka].filter(Boolean).join(' / ')||'—'}</td>
+      <td style="padding:12px 14px;font-size:13px">${(() => {
+        const tals = (DB.stretchTalukas||[]).filter(t=>t.stretch_id===s.id);
+        if (tals.length === 0) return s.district || '—';
+        const districts = [...new Set(tals.map(t=>t.district).filter(Boolean))];
+        const talukas   = [...new Set(tals.map(t=>t.taluka).filter(Boolean))];
+        return '<div style="font-size:12px"><strong>'+districts.join(', ')+'</strong>'+
+          (talukas.length ? '<br><span style="color:var(--text-dim)">'+talukas.join(', ')+'</span>' : '')+
+          '<br><span style="font-size:11px;color:var(--accent)">'+tals.length+' taluka row'+(tals.length>1?'s':'')+'</span></div>';
+      })()}</td>
       <td style="padding:12px 14px;font-size:13px">${s.division||'—'}</td>
       <td style="padding:12px 14px">${proj
         ? '<span class="badge badge-complete" style="font-size:11px">'+proj.name+'</span>'
@@ -3852,45 +3863,152 @@ function openNHModal(id) {
   });
 }
 
+// ── Taluka rows state for modal ──
+let _stretchTalukaRows = [];
+
+function buildTalukaRowHtml(idx, row) {
+  const distOpts = MH_DISTRICT_NAMES.map(d =>
+    '<option value="'+d+'"'+(row.district===d?' selected':'')+'>'+d+'</option>'
+  ).join('');
+  const talOpts = row.district && MH_DISTRICTS[row.district]
+    ? MH_DISTRICTS[row.district].map(t=>'<option value="'+t+'"'+(row.taluka===t?' selected':'')+'>'+t+'</option>').join('')
+    : '';
+  return '<tr id="trow-'+idx+'" style="border-top:1px solid var(--border)">' +
+    '<td style="padding:6px 8px"><select id="trow-dist-'+idx+'" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:12px">' +
+      '<option value="">— District —</option>'+distOpts+'</select></td>' +
+    '<td style="padding:6px 8px"><select id="trow-tal-'+idx+'" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:12px">' +
+      '<option value="">— Taluka —</option>'+talOpts+'</select></td>' +
+    '<td style="padding:6px 8px"><input id="trow-from-'+idx+'" type="number" step="0.001" value="'+(row.chainage_from||'')+'" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:12px" placeholder="0.000"></td>' +
+    '<td style="padding:6px 8px"><input id="trow-to-'+idx+'" type="number" step="0.001" value="'+(row.chainage_to||'')+'" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:12px" placeholder="0.000"></td>' +
+    '<td style="padding:6px 8px;text-align:center;font-family:monospace;font-size:12px;color:#4ade80;font-weight:700" id="trow-len-'+idx+'">'+(row.length ? row.length+' km' : '—')+'</td>' +
+    '<td style="padding:6px 8px;text-align:center"><button type="button" onclick="removeTalukaRow('+idx+')" style="background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.4);border-radius:4px;color:#f87171;cursor:pointer;padding:2px 8px;font-size:13px">✕</button></td>' +
+  '</tr>';
+}
+
+function attachTalukaRowEvents(idx) {
+  var distSel = document.getElementById('trow-dist-'+idx);
+  var talSel  = document.getElementById('trow-tal-'+idx);
+  var fromEl  = document.getElementById('trow-from-'+idx);
+  var toEl    = document.getElementById('trow-to-'+idx);
+  if (!distSel) return;
+
+  distSel.addEventListener('change', function() {
+    var d = this.value;
+    talSel.innerHTML = '<option value="">— Taluka —</option>' +
+      (MH_DISTRICTS[d]||[]).map(t=>'<option value="'+t+'">'+t+'</option>').join('');
+    _stretchTalukaRows[idx].district = d;
+    _stretchTalukaRows[idx].taluka = '';
+    updateTalukaBalance();
+  });
+  talSel.addEventListener('change', function() {
+    _stretchTalukaRows[idx].taluka = this.value;
+  });
+  function recalcLen() {
+    var f = parseFloat(fromEl.value);
+    var t = parseFloat(toEl.value);
+    var lenEl = document.getElementById('trow-len-'+idx);
+    if (!isNaN(f) && !isNaN(t) && t > f) {
+      var l = (t-f).toFixed(3);
+      _stretchTalukaRows[idx].chainage_from = f;
+      _stretchTalukaRows[idx].chainage_to = t;
+      _stretchTalukaRows[idx].length = l;
+      lenEl.textContent = l+' km';
+    } else {
+      _stretchTalukaRows[idx].chainage_from = null;
+      _stretchTalukaRows[idx].chainage_to = null;
+      _stretchTalukaRows[idx].length = null;
+      lenEl.textContent = '—';
+    }
+    updateTalukaBalance();
+  }
+  fromEl.addEventListener('input', recalcLen);
+  toEl.addEventListener('input', recalcLen);
+}
+
+function addTalukaRow() {
+  // Suggest next from = last row's to
+  var lastRow = _stretchTalukaRows[_stretchTalukaRows.length-1];
+  var newFrom = lastRow && lastRow.chainage_to ? parseFloat(lastRow.chainage_to) : null;
+  var newRow = { district:'', taluka:'', chainage_from: newFrom, chainage_to: null, length: null };
+  _stretchTalukaRows.push(newRow);
+  var idx = _stretchTalukaRows.length - 1;
+  var tbody = document.getElementById('taluka-rows-tbody');
+  var tr = document.createElement('tr');
+  tr.outerHTML; // dummy
+  tbody.insertAdjacentHTML('beforeend', buildTalukaRowHtml(idx, newRow));
+  attachTalukaRowEvents(idx);
+  updateTalukaBalance();
+}
+
+function removeTalukaRow(idx) {
+  _stretchTalukaRows[idx] = null;
+  var tr = document.getElementById('trow-'+idx);
+  if (tr) tr.remove();
+  updateTalukaBalance();
+}
+
+function updateTalukaBalance() {
+  var stretchFrom = parseFloat(document.getElementById('sf-from')?.value)||0;
+  var stretchTo   = parseFloat(document.getElementById('sf-to')?.value)||0;
+  var stretchLen  = stretchTo > stretchFrom ? stretchTo - stretchFrom : 0;
+  var rows = _stretchTalukaRows.filter(Boolean);
+  var totalTalukaLen = rows.reduce(function(s,r){ return s+(parseFloat(r.length)||0); },0);
+  var diff = Math.abs(stretchLen - totalTalukaLen);
+  var balEl = document.getElementById('taluka-balance');
+  if (!balEl) return;
+  if (stretchLen === 0) { balEl.innerHTML=''; return; }
+  if (diff < 0.001) {
+    balEl.innerHTML = '<span style="color:#4ade80;font-weight:700">✅ Total matches stretch length ('+stretchLen.toFixed(3)+' km)</span>';
+  } else {
+    var rem = stretchLen - totalTalukaLen;
+    var color = rem > 0 ? '#fbbf24' : '#f87171';
+    balEl.innerHTML = '<span style="color:'+color+';font-weight:700">'+(rem>0?'⚠ Remaining: '+rem.toFixed(3)+' km to assign':'⚠ Over by '+Math.abs(rem).toFixed(3)+' km — exceeds stretch length')+'</span>';
+  }
+}
+
 function openStretchModal(nhId, id) {
   const nh = nhState.nhList.find(x=>x.id===nhId);
   const s = id ? (nhState.stretches[nhId]||[]).find(x=>x.id===id) : null;
   const stretches = nhState.stretches[nhId] || [];
   const nhFrom = parseFloat(nh.chainage_from)||0;
   const nhTo   = parseFloat(nh.chainage_to)||0;
-
-  // For new stretch: auto-fill next available chainage from
   const otherStretches = stretches.filter(x => x.id !== id);
   const nextFrom = s ? parseFloat(s.chainage_from) : getNextChainageFrom(nhFrom, otherStretches);
   const gaps = getChainageGaps(nhFrom, nhTo, otherStretches);
-
-  // Division list from users
   const divisions = [...new Set(DB.users ? DB.users.filter(u=>u.division).map(u=>u.division) : [])];
   const userDiv = currentUser.division || '';
   const curDiv = s?.division || userDiv;
 
+  // Load existing taluka rows
+  const existingTalukas = id ? (DB.stretchTalukas||[]).filter(t=>t.stretch_id===id) : [];
+  _stretchTalukaRows = existingTalukas.length > 0
+    ? existingTalukas.map(t=>({ district:t.district||'', taluka:t.taluka||'', chainage_from:t.chainage_from, chainage_to:t.chainage_to, length:t.length }))
+    : [];
+
   const gapHint = gaps.length > 0
-    ? '<div style="margin-bottom:14px;padding:10px 14px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:8px;font-size:12px;color:#fbbf24">'+
+    ? '<div style="margin-bottom:12px;padding:9px 14px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:8px;font-size:12px;color:#fbbf24">'+
       '<strong>Available gaps:</strong> ' + gaps.map(g=>'Ch. '+g.from.toFixed(3)+' → '+g.to.toFixed(3)+' ('+((g.to-g.from).toFixed(3))+' km)').join(' &nbsp;|&nbsp; ')+'</div>'
     : '';
 
+  const talukaRowsHtml = _stretchTalukaRows.map((r,i) => buildTalukaRowHtml(i, r)).join('');
+
   openModal((s?'Edit':'Add')+' Stretch — '+nh.nh_number, `
     ${gapHint}
-    <div class="form-grid cols-2">
+    <div class="form-grid cols-2" style="margin-bottom:16px">
       <div class="field" style="grid-column:1/-1"><label class="required">Stretch Name</label>
         <input id="sf-name" value="${s?.name||''}" placeholder="e.g. Km ${nextFrom} to Km ... Section"></div>
-      <div class="field"><label class="required">Chainage From (km)</label>
+      <div class="field">
+        <label class="required">Chainage From (km)</label>
         <input id="sf-from" type="number" step="0.001" value="${nextFrom}" placeholder="${nhFrom}">
         <div id="sf-from-err" style="font-size:11px;color:#f87171;margin-top:3px;display:none"></div>
       </div>
-      <div class="field"><label class="required">Chainage To (km)</label>
+      <div class="field">
+        <label class="required">Chainage To (km)</label>
         <input id="sf-to" type="number" step="0.001" value="${s?.chainage_to||''}" placeholder="${nhTo}">
         <div id="sf-to-err" style="font-size:11px;color:#f87171;margin-top:3px;display:none"></div>
       </div>
       <div class="field"><label>Length (km) <span style="font-size:10px;color:#4ade80">(auto)</span></label>
-        <input id="sf-len" type="number" step="0.001" value="${s?.length||''}" placeholder="Auto" readonly style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)"></div>
-      <div class="field"><label>District</label><input id="sf-district" value="${s?.district||''}" placeholder="e.g. Nashik"></div>
-      <div class="field"><label>Taluka</label><input id="sf-taluka" value="${s?.taluka||''}" placeholder="e.g. Igatpuri"></div>
+        <input id="sf-len" readonly placeholder="Auto" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)"></div>
       <div class="field"><label>Division</label>
         <select id="sf-division">
           <option value="">— Select —</option>
@@ -3906,6 +4024,31 @@ function openStretchModal(nhId, id) {
       <div class="field" style="grid-column:1/-1"><label>Description</label>
         <input id="sf-desc" value="${s?.description||''}" placeholder="Optional notes about this stretch"></div>
     </div>
+
+    <!-- District / Taluka Breakup -->
+    <div style="border-top:1px solid var(--border);padding-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <span style="font-size:13px;font-weight:700;color:var(--accent)">District / Taluka Chainage Breakup</span>
+          <span style="font-size:11px;color:var(--text-dim);margin-left:8px">Total must equal stretch length</span>
+        </div>
+        <button type="button" id="add-taluka-row-btn" class="btn btn-secondary btn-sm">+ Add Row</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:560px">
+          <thead><tr style="background:var(--surface)">
+            <th style="padding:8px 8px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase;width:28%">District</th>
+            <th style="padding:8px 8px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase;width:24%">Taluka</th>
+            <th style="padding:8px 8px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase;width:16%">Ch. From</th>
+            <th style="padding:8px 8px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase;width:16%">Ch. To</th>
+            <th style="padding:8px 8px;text-align:center;font-size:11px;color:var(--text-dim);text-transform:uppercase;width:12%">Length</th>
+            <th style="width:4%"></th>
+          </tr></thead>
+          <tbody id="taluka-rows-tbody">${talukaRowsHtml}</tbody>
+        </table>
+      </div>
+      <div id="taluka-balance" style="margin-top:10px;font-size:12px;min-height:20px"></div>
+    </div>
   `, [
     { label:'Cancel', cls:'btn-secondary', action:closeModal },
     { label: s ? 'Update Stretch' : 'Add Stretch', cls:'btn-primary', action: async () => {
@@ -3913,8 +4056,6 @@ function openStretchModal(nhId, id) {
       const from = parseFloat(document.getElementById('sf-from').value);
       const to   = parseFloat(document.getElementById('sf-to').value);
 
-      // ── Validation ──
-      let valid = true;
       document.getElementById('sf-from-err').style.display = 'none';
       document.getElementById('sf-to-err').style.display   = 'none';
 
@@ -3927,36 +4068,55 @@ function openStretchModal(nhId, id) {
       if (from < nhFrom - 0.001 || to > nhTo + 0.001) {
         showToast('Chainage must be within NH range ('+nhFrom+' – '+nhTo+' km)','error'); return;
       }
-
-      // Overlap check against other stretches
       for (const os of otherStretches) {
-        const osf = parseFloat(os.chainage_from);
-        const ost = parseFloat(os.chainage_to);
+        const osf = parseFloat(os.chainage_from), ost = parseFloat(os.chainage_to);
         if (from < ost - 0.001 && to > osf + 0.001) {
-          document.getElementById('sf-from-err').textContent =
-            'Overlaps with existing stretch "'+os.name+'" (Ch. '+osf+' – '+ost+').';
-          document.getElementById('sf-from-err').style.display = 'block';
-          valid = false; break;
+          document.getElementById('sf-from-err').textContent = 'Overlaps with "'+os.name+'" (Ch. '+osf+' – '+ost+').';
+          document.getElementById('sf-from-err').style.display = 'block'; return;
         }
       }
-      if (!valid) return;
+
+      // Taluka balance check
+      const talukaRows = _stretchTalukaRows.filter(Boolean).filter(r=>r.district||r.taluka);
+      if (talukaRows.length > 0) {
+        const stretchLen = to - from;
+        const totalTal = talukaRows.reduce((s,r)=>s+(parseFloat(r.length)||0),0);
+        if (Math.abs(stretchLen - totalTal) > 0.01) {
+          showToast('Taluka chainage total ('+totalTal.toFixed(3)+' km) must equal stretch length ('+stretchLen.toFixed(3)+' km)','error'); return;
+        }
+        // Check all taluka rows have district and valid chainages
+        for (var tr of talukaRows) {
+          if (!tr.district) { showToast('All taluka rows must have a district selected','error'); return; }
+          if (!tr.chainage_from && tr.chainage_from !== 0) { showToast('All taluka rows must have chainage from/to','error'); return; }
+        }
+      }
 
       const len = (to-from).toFixed(3);
       const body = { name, chainage_from:from, chainage_to:to, length:len,
         description:document.getElementById('sf-desc').value,
-        district:document.getElementById('sf-district').value,
-        taluka:document.getElementById('sf-taluka').value,
-        division:document.getElementById('sf-division').value,
-        project_id:document.getElementById('sf-project').value||null };
+        district: talukaRows.length>0 ? [...new Set(talukaRows.map(r=>r.district))].join(', ') : '',
+        taluka:   talukaRows.length>0 ? [...new Set(talukaRows.map(r=>r.taluka).filter(Boolean))].join(', ') : '',
+        division: document.getElementById('sf-division').value,
+        project_id: document.getElementById('sf-project').value||null };
       try {
+        let stretchId;
         if (s) {
           const r = await api('PUT','/api/nh/stretches/'+id, body);
           const arr = nhState.stretches[nhId];
           arr[arr.findIndex(x=>x.id===id)] = r;
+          stretchId = id;
         } else {
           const r = await api('POST','/api/nh/'+nhId+'/stretches', body);
           if (!nhState.stretches[nhId]) nhState.stretches[nhId] = [];
           nhState.stretches[nhId].push(r);
+          stretchId = r.id;
+        }
+        // Save taluka rows
+        if (talukaRows.length > 0) {
+          const saved = await api('POST','/api/nh/stretches/'+stretchId+'/talukas', { rows: talukaRows });
+          // Update local DB
+          DB.stretchTalukas = (DB.stretchTalukas||[]).filter(t=>t.stretch_id!==stretchId);
+          saved.forEach(t => DB.stretchTalukas.push(t));
         }
         closeModal();
         renderStretchPanel(nhState.nhList.find(x=>x.id===nhId));
@@ -3966,17 +4126,30 @@ function openStretchModal(nhId, id) {
   ]);
   document.querySelector('.modal').classList.add('wide');
 
-  // Auto-calc length on chainage change
+  // Attach events to existing taluka rows
+  _stretchTalukaRows.forEach((_,i) => attachTalukaRowEvents(i));
+
+  // Stretch chainage events
   ['sf-from','sf-to'].forEach(fid => {
     document.getElementById(fid)?.addEventListener('input', () => {
       const f = parseFloat(document.getElementById('sf-from').value);
       const t = parseFloat(document.getElementById('sf-to').value);
-      if (!isNaN(f) && !isNaN(t) && t > f)
+      if (!isNaN(f) && !isNaN(t) && t > f) {
         document.getElementById('sf-len').value = (t-f).toFixed(3);
-      else
+      } else {
         document.getElementById('sf-len').value = '';
+      }
+      updateTalukaBalance();
     });
   });
+
+  // Init length display if editing
+  if (s && s.chainage_from && s.chainage_to) {
+    document.getElementById('sf-len').value = (parseFloat(s.chainage_to)-parseFloat(s.chainage_from)).toFixed(3);
+  }
+
+  document.getElementById('add-taluka-row-btn')?.addEventListener('click', addTalukaRow);
+  updateTalukaBalance();
 }
 
 async function deleteStretch(nhId, id) {
