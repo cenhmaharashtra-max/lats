@@ -2447,103 +2447,36 @@ function renderTab_JM(hasUpper3A) {
 
     // Collect all gut rows
     const allRows = document.querySelectorAll('#jm-gut-tbody tr');
-    const normalGuts = [];   // guts from 3A (modArea <= 3A area)
-    const addlGuts   = [];   // guts with modArea > 3A area OR new guts
+    const normalGuts = [];
 
     allRows.forEach(function(row) {
       const isNew = row.getAttribute('data-isnew') === '1';
-      const area3a = parseFloat(row.getAttribute('data-area3a')) || 0;
       let gutNum, modArea;
-
       if (isNew) {
         const gutEl = row.querySelector('input[id^="jm_newgut_"]');
         const areaEl = row.querySelector('input[type="number"]');
-        const ltEl = row.querySelector('select[id^="jm_lt_"]');
         gutNum  = gutEl ? gutEl.value.trim() : '';
         modArea = areaEl ? areaEl.value : '';
-        const landType = ltEl ? ltEl.value : 'Private Land';
-        if (!gutNum) return; // skip empty rows
-        addlGuts.push({ gutNumber: gutNum, modArea: modArea, landType: landType, isNew: true });
+        if (!gutNum) return;
+        normalGuts.push({ gutNumber: gutNum, modArea: modArea });
       } else {
         gutNum  = row.getAttribute('data-gut');
         const areaEl = row.querySelector('input[type="number"]');
         modArea = areaEl ? areaEl.value : '';
-        const modVal = parseFloat(modArea) || 0;
-
-        if (modVal > area3a && area3a > 0) {
-          // Keep full gut in main village (for reference, marked isAddl=true for extra part)
-          normalGuts.push({ gutNumber: gutNum, modArea: modArea, isAddl: true });
-          addlGuts.push({ gutNumber: gutNum, modArea: String((modVal - area3a).toFixed(4)), isNew: false, extraOnly: true });
-        } else {
-          normalGuts.push({ gutNumber: gutNum, modArea: modArea, isAddl: false });
-        }
+        normalGuts.push({ gutNumber: gutNum, modArea: modArea });
       }
     });
 
-    // Save normal JM record
+    // Save JM record
     if (existing) {
       existing.jmDate = jmDate; existing.sheetDate = sheetDate; existing.laLengthJm = laLengthJm;
+      existing.srNo = laState.srNo||1;
       DB.processJMGuts = DB.processJMGuts.filter(g => g.processJMId !== existing.id);
-      normalGuts.forEach(g => DB.processJMGuts.push({ id: newId(), processJMId: existing.id, gutNumber: g.gutNumber, modArea: g.modArea, isAddl: g.isAddl||false }));
+      normalGuts.forEach(g => DB.processJMGuts.push({ id: newId(), processJMId: existing.id, gutNumber: g.gutNumber, modArea: g.modArea }));
     } else {
       const id = newId();
-      DB.processJM.push({ id, projectId: laState.projectId, villageId: laState.villageId, jmDate, sheetDate, laLengthJm });
-      normalGuts.forEach(g => DB.processJMGuts.push({ id: newId(), processJMId: id, gutNumber: g.gutNumber, modArea: g.modArea, isAddl: g.isAddl||false }));
-    }
-
-    // Handle Additional Area — create/update "Village (Add)" village and its 3a, 3A, JM records
-    if (addlGuts.length > 0) {
-      const baseVillage = DB.villages.find(v => v.id === laState.villageId);
-      const addlVilName = baseVillage.name + ' Add (' + baseVillage.taluka + ')';
-
-      // Find or create Add village
-      let addlVil = DB.villages.find(v => v.projectId === laState.projectId && v.name === addlVilName);
-      if (!addlVil) {
-        const addlVilId = newId();
-        DB.villages.push({ id: addlVilId, projectId: laState.projectId, name: addlVilName, taluka: baseVillage.taluka, isAddl: true });
-        addlVil = DB.villages.find(v => v.id === addlVilId);
-      }
-
-      // Copy 3a record to Add village if not exists
-      const base3a = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'lower3a');
-      if (base3a && !DB.process3a.find(x => x.villageId === addlVil.id && x.projectId === laState.projectId && x.type === 'lower3a')) {
-        DB.process3a.push({ id: newId(), projectId: laState.projectId, villageId: addlVil.id,
-          type: 'lower3a', notifDate: base3a.notifDate, calaPost: base3a.calaPost, calaName: base3a.calaName, calaMobile: base3a.calaMobile });
-      }
-
-      // Create 3A record for Add village — blank notifDate, guts pre-filled from addl guts
-      // User must enter the 3A notification date before proceeding to 3D
-      let addl3A = DB.process3a.find(x => x.villageId === addlVil.id && x.projectId === laState.projectId && x.type === 'upper3A');
-      if (!addl3A) {
-        const addl3AId = newId();
-        DB.process3a.push({ id: addl3AId, projectId: laState.projectId, villageId: addlVil.id, type: 'upper3A', notifDate: '' });
-        addl3A = DB.process3a.find(x => x.id === addl3AId);
-      }
-      // Always replace guts with addl guts
-      DB.process3aGuts = DB.process3aGuts.filter(g => g.process3aId !== addl3A.id);
-      addlGuts.forEach(function(g) {
-        // Use land type from user selection in JM; fallback to orig 3A gut or Private Land
-        const orig3Agut = guts3A.find(x => x.gutNumber === g.gutNumber);
-        const landType = g.landType || (orig3Agut ? orig3Agut.landType : 'Private Land');
-        DB.process3aGuts.push({ id: newId(), process3aId: addl3A.id, gutNumber: g.gutNumber, area: g.modArea, landType: landType });
-      });
-
-      // Create/update JM record for Add village
-      let addlJM = DB.processJM.find(x => x.villageId === addlVil.id && x.projectId === laState.projectId);
-      if (!addlJM) {
-        const addlJMId = newId();
-        DB.processJM.push({ id: addlJMId, projectId: laState.projectId, villageId: addlVil.id, jmDate, sheetDate });
-        addlJM = DB.processJM.find(x => x.id === addlJMId);
-      } else {
-        addlJM.jmDate = jmDate; addlJM.sheetDate = sheetDate;
-      }
-      DB.processJMGuts = DB.processJMGuts.filter(g => g.processJMId !== addlJM.id);
-      addlGuts.forEach(function(g) {
-        DB.processJMGuts.push({ id: newId(), processJMId: addlJM.id, gutNumber: g.gutNumber, modArea: g.modArea });
-      });
-
-      saveDB();
-      showToast('✅ JM saved! Extra gut area moved to new village "' + addlVilName + '". You can see it in Village Master and proceed with 3A → 3D → 3G for it separately.', 'success');
+      DB.processJM.push({ id, projectId: laState.projectId, villageId: laState.villageId, jmDate, sheetDate, laLengthJm, srNo: laState.srNo||1, srName: rec3A?.srName||'Main' });
+      normalGuts.forEach(g => DB.processJMGuts.push({ id: newId(), processJMId: id, gutNumber: g.gutNumber, modArea: g.modArea }));
     }
 
     saveDB();
