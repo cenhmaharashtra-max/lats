@@ -673,7 +673,7 @@ tr:hover td { background: var(--card-hover); }
 </div>
 
 <!-- MODAL -->
-<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
   <div class="modal" id="modal-box">
     <div class="modal-header">
       <h3 id="modal-title">Modal</h3>
@@ -3414,9 +3414,7 @@ function confirmModal(message, onConfirm) {
   );
 }
 
-function closeModal(e) {
-  // If called from overlay click, only close if clicking the overlay itself (not the box)
-  if (e && e.currentTarget === document.getElementById('modal-overlay') && e.target !== document.getElementById('modal-overlay')) return;
+function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
 }
 
