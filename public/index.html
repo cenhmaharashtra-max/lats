@@ -1944,18 +1944,6 @@ function renderLATabs() {
       };
 
   document.getElementById('la-content').innerHTML = `
-    <!-- Sr. No Tabs -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap">
-      <span style="font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-right:4px">Serial No:</span>
-      ${srList.map(s => `
-        <div class="tab ${s.srNo === sr ? 'active' : ''}" data-sr="${s.srNo}"
-          style="cursor:pointer;padding:6px 14px;font-size:13px;font-weight:600;border-radius:6px;${s.srNo === sr ? 'background:var(--accent);color:var(--navy)' : 'background:var(--card);border:1px solid var(--border)'}">
-          Sr.${s.srNo}${s.srNo === 1 ? ' (Main)' : ' (' + s.srName + ')'}
-        </div>
-      `).join('')}
-      <button class="btn btn-secondary btn-sm" onclick="addNewSr()" style="padding:6px 12px;font-size:13px">+ Add Sr.</button>
-    </div>
-
     <div class="process-steps">
       ${steps.map((s, i) => `
         <div class="process-step">
@@ -1983,12 +1971,63 @@ function renderLATabs() {
     </div>
 
     <div id="la-tab-content"></div>
+
+    <!-- Sr. Entries Summary Table -->
+    <div class="panel" style="margin-top:28px">
+      <div class="panel-header" style="padding:14px 20px">
+        <h3 style="font-size:14px">📋 All Entries for this Village</h3>
+        <button class="btn btn-primary btn-sm" onclick="addNewSr()">+ Add New Entry</button>
+      </div>
+      <div class="panel-body" style="padding:0">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:var(--surface)">
+              <th style="padding:10px 16px;text-align:left;font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Sr. No</th>
+              <th style="padding:10px 16px;text-align:left;font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Name</th>
+              <th style="padding:10px 16px;text-align:left;font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">3A Date</th>
+              <th style="padding:10px 16px;text-align:left;font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">3A Area (Ha)</th>
+              <th style="padding:10px 16px;text-align:left;font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">JM Date</th>
+              <th style="padding:10px 16px;text-align:left;font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">JM Area (Ha)</th>
+              <th style="padding:10px 16px;text-align:left;font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">3D Date</th>
+              <th style="padding:10px 16px;text-align:left;font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">3G Date</th>
+              <th style="padding:10px 16px;text-align:left;font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${srList.map(s => {
+              const rec3A  = DB.process3a.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && x.type === 'upper3A' && (x.srNo||1) === s.srNo);
+              const area3A = rec3A ? DB.process3aGuts.filter(g => g.process3aId === rec3A.id).reduce((sum,g) => sum+(parseFloat(g.area)||0), 0).toFixed(4) : '—';
+              const recJM  = DB.processJM.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && (x.srNo||1) === s.srNo);
+              const areaJM = recJM ? DB.processJMGuts.filter(g => g.processJMId === recJM.id).reduce((sum,g) => sum+(parseFloat(g.modArea)||0), 0).toFixed(4) : '—';
+              const rec3D  = DB.process3D.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && (x.srNo||1) === s.srNo);
+              const rec3G  = DB.process3G.find(x => x.villageId === laState.villageId && x.projectId === laState.projectId && (x.srNo||1) === s.srNo);
+              const isActive = s.srNo === sr;
+              return `<tr style="border-top:1px solid var(--border);background:\${isActive ? 'rgba(232,160,32,0.07)' : 'transparent'};cursor:pointer" data-sr-row="\${s.srNo}">
+                <td style="padding:12px 16px;font-weight:700;color:\${isActive ? 'var(--accent)' : 'var(--text)'}">Sr.\${s.srNo}</td>
+                <td style="padding:12px 16px;font-size:13px">\${s.srName}</td>
+                <td style="padding:12px 16px;font-size:13px;font-family:monospace">\${rec3A?.notifDate||'—'}</td>
+                <td style="padding:12px 16px;font-size:13px;font-family:monospace">\${area3A}</td>
+                <td style="padding:12px 16px;font-size:13px;font-family:monospace">\${recJM?.jmDate||'—'}</td>
+                <td style="padding:12px 16px;font-size:13px;font-family:monospace">\${areaJM}</td>
+                <td style="padding:12px 16px;font-size:13px;font-family:monospace">\${rec3D?.notifDate||'—'}</td>
+                <td style="padding:12px 16px;font-size:13px;font-family:monospace">\${rec3G?.notifDate||'—'}</td>
+                <td style="padding:12px 16px">
+                  <button class="btn btn-secondary btn-sm" data-sr="\${s.srNo}" style="font-size:12px">\${isActive ? '✓ Editing' : '✎ Open'}</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
   `;
 
-  // Sr. tab clicks
-  document.querySelectorAll('[data-sr]').forEach(function(el) {
+  // Sr. row/button clicks
+  document.querySelectorAll('[data-sr],[data-sr-row]').forEach(function(el) {
     el.addEventListener('click', function() {
-      laState.srNo = parseInt(this.getAttribute('data-sr'));
+      const srNo = parseInt(this.getAttribute('data-sr') || this.getAttribute('data-sr-row'));
+      if (!srNo) return;
+      laState.srNo = srNo;
       delete laState._newSrName;
       laState.tab = laState.srNo === 1 ? 'lower3a' : 'upper3A';
       renderLATabs();
