@@ -3415,7 +3415,8 @@ function confirmModal(message, onConfirm) {
 }
 
 function closeModal(e) {
-  if (e && e.target !== document.getElementById('modal-overlay')) return;
+  // If called from overlay click, only close if clicking the overlay itself (not the box)
+  if (e && e.currentTarget === document.getElementById('modal-overlay') && e.target !== document.getElementById('modal-overlay')) return;
   document.getElementById('modal-overlay').classList.remove('open');
 }
 
