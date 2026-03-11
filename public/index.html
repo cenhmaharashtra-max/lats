@@ -713,7 +713,7 @@ async function api(method, url, body) {
 // ── Map server rows → app camelCase ──
 function mapSync(d) {
   DB.projects = (d.projects||[]).map(p=>({
-    id:p.id, name:p.name, tafsNo:p.tafs_no, length:p.length, tpc:p.tpc,
+    id:p.id, name:p.name, tafsNo:p.tafs_no, tafsDate:p.tafs_date||'', length:p.length, tpc:p.tpc,
     civilCost:p.civil_cost, laCost:p.la_cost, totalLand:p.total_land,
     availLand:p.avail_land, laRequired:p.la_required, laLength:p.la_length,
     laLengthTafs:p.la_length_tafs,
@@ -1482,14 +1482,15 @@ function showProjectModal(id) {
         <label class="required">Project Name</label>
         <input id="pf-name" value="${p?.name||''}" placeholder="e.g. National Highway 48 Extension">
       </div>
-      <div class="field"><label class="required">TAFS Number</label><input id="pf-tafs" value="${p?.tafsNo||''}" placeholder="e.g. TAFS/2024/001"></div>
+      <div class="field"><label class="required">TAFS Job Number</label><input id="pf-tafs" value="${p?.tafsNo||''}" placeholder="e.g. TAFS/2024/001"></div>
+      <div class="field"><label>TAFS Date</label><input id="pf-tafsdate" type="date" value="${p?.tafsDate||''}" ></div>
       <div class="field"><label>Project Length (km)</label><input id="pf-len" type="number" value="${p?.length||''}" placeholder="0.00" oninput="(function(){var l=parseFloat(document.getElementById('pf-len').value)||0;var la=parseFloat(document.getElementById('pf-latafs').value)||0;document.getElementById('pf-lavail-tafs').value=l>0||la>0?(l-la).toFixed(4):''})()"></div>
       <div class="field"><label>TPC (₹)</label><input id="pf-tpc" type="number" value="${p?.tpc||''}" placeholder="0"></div>
       <div class="field"><label>Civil Cost (₹)</label><input id="pf-civil" type="number" value="${p?.civilCost||''}" placeholder="0"></div>
-      <div class="field"><label>LA Cost (₹)</label><input id="pf-lacost" type="number" value="${p?.laCost||''}" placeholder="0"></div>
-      <div class="field"><label>Total Land Required (Ha)</label><input id="pf-total" type="number" value="${p?.totalLand||''}" placeholder="0.00" oninput="(function(){var t=parseFloat(document.getElementById('pf-total').value)||0;var a=parseFloat(document.getElementById('pf-avail').value)||0;document.getElementById('pf-la').value=t>0||a>0?(t-a).toFixed(4):''})()"></div>
-      <div class="field"><label>Available Land (Ha)</label><input id="pf-avail" type="number" value="${p?.availLand||''}" placeholder="0.00" oninput="(function(){var t=parseFloat(document.getElementById('pf-total').value)||0;var a=parseFloat(document.getElementById('pf-avail').value)||0;document.getElementById('pf-la').value=t>0||a>0?(t-a).toFixed(4):''})()"></div>
-      <div class="field"><label>Land to be Acquired as per TAFS (Ha) <span style="font-size:10px;color:#4ade80;font-weight:400">(auto = Total − Available)</span></label><input id="pf-la" type="number" value="${p?.laRequired||''}" placeholder="Auto-calculated" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4);color:var(--text)" readonly></div>
+      <div class="field"><label>LA Cost As per TAFS (₹)</label><input id="pf-lacost" type="number" value="${p?.laCost||''}" placeholder="0"></div>
+      <div class="field"><label>Total Land Required (Ha)</label><input id="pf-total" type="number" value="${p?.totalLand||''}" placeholder="0.00"></div>
+      <div class="field"><label>Available Land (Ha)</label><input id="pf-avail" type="number" value="${p?.availLand||''}" placeholder="0.00"></div>
+      <div class="field"><label>Land to be Acquired as per TAFS (Ha)</label><input id="pf-la" type="number" value="${p?.laRequired||''}" placeholder="0.0000"></div>
       <div class="field"><label>Length Affected due to LA as per TAFS (km)</label><input id="pf-latafs" type="number" value="${p?.laLengthTafs||''}" placeholder="0.00" oninput="(function(){var l=parseFloat(document.getElementById('pf-len').value)||0;var la=parseFloat(document.getElementById('pf-latafs').value)||0;document.getElementById('pf-lavail-tafs').value=l>0||la>0?(l-la).toFixed(4):''})()"></div>
       <div class="field"><label>Project Length Available as per TAFS (km) <span style="font-size:10px;color:#4ade80;font-weight:400">(auto = Project Length − Affected)</span></label><input id="pf-lavail-tafs" type="number" value="${p?.laLengthTafs&&p?.length?(parseFloat(p.length)-parseFloat(p.laLengthTafs)).toFixed(4):''}" placeholder="Auto-calculated" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)" readonly></div>
     </div>
@@ -1504,8 +1505,9 @@ function saveProject(id) {
   const name = document.getElementById('pf-name').value.trim();
   const tafsNo = document.getElementById('pf-tafs').value.trim();
   if (!name || !tafsNo) { showToast('Project name and TAFS number are required.', 'error'); return; }
+  const tafsDate = document.getElementById('pf-tafsdate').value;
   const data = {
-    name, tafsNo,
+    name, tafsNo, tafsDate,
     length: document.getElementById('pf-len').value,
     tpc: document.getElementById('pf-tpc').value,
     civilCost: document.getElementById('pf-civil').value,
