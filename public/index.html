@@ -3882,21 +3882,16 @@ function openNHModal(id) {
 let _stretchTalukaRows = [];
 
 function makeTalukaSelect(id, placeholder, optionsList, selectedValue) {
-  // Use size > 1 so browser renders as a visible listbox (not OS popup) — fully styleable
   var sel = document.createElement('select');
   sel.id = id;
-  var size = Math.min(optionsList.length + 1, 6);
-  sel.size = size > 1 ? size : 1;
-  sel.style.cssText = 'width:100%;background:#0f172a;border:1px solid #475569;border-radius:5px;padding:4px;color:#f1f5f9;font-size:12px;max-height:120px;overflow-y:auto';
+  sel.style.cssText = 'width:100%;background:#1e293b;border:1px solid #475569;border-radius:5px;padding:5px 8px;color:#f1f5f9;font-size:12px;color-scheme:dark';
   var blank = document.createElement('option');
-  blank.value = ''; blank.textContent = placeholder; blank.style.cssText = 'background:#0f172a;color:#94a3b8';
-  if (!selectedValue) blank.selected = true;
+  blank.value = ''; blank.textContent = placeholder;
   sel.appendChild(blank);
   optionsList.forEach(function(v) {
     var opt = document.createElement('option');
     opt.value = v; opt.textContent = v;
-    opt.style.cssText = 'background:#0f172a;color:#f1f5f9;padding:3px 6px';
-    if (v === selectedValue) { opt.selected = true; }
+    if (v === selectedValue) opt.selected = true;
     sel.appendChild(opt);
   });
   return sel;
