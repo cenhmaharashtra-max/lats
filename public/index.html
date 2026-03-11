@@ -3868,16 +3868,16 @@ let _stretchTalukaRows = [];
 
 function buildTalukaRowHtml(idx, row) {
   const distOpts = MH_DISTRICT_NAMES.map(d =>
-    '<option value="'+d+'"'+(row.district===d?' selected':'')+'>'+d+'</option>'
+    '<option value="'+d+'" style="background:#1e293b;color:#f1f5f9"'+(row.district===d?' selected':'')+'>'+d+'</option>'
   ).join('');
   const talOpts = row.district && MH_DISTRICTS[row.district]
-    ? MH_DISTRICTS[row.district].map(t=>'<option value="'+t+'"'+(row.taluka===t?' selected':'')+'>'+t+'</option>').join('')
+    ? MH_DISTRICTS[row.district].map(t=>'<option value="'+t+'" style="background:#1e293b;color:#f1f5f9"'+(row.taluka===t?' selected':'')+'>'+t+'</option>').join('')
     : '';
   return '<tr id="trow-'+idx+'" style="border-top:1px solid var(--border)">' +
-    '<td style="padding:6px 8px"><select id="trow-dist-'+idx+'" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:12px">' +
-      '<option value="">— District —</option>'+distOpts+'</select></td>' +
-    '<td style="padding:6px 8px"><select id="trow-tal-'+idx+'" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:12px">' +
-      '<option value="">— Taluka —</option>'+talOpts+'</select></td>' +
+    '<td style="padding:6px 8px"><select id="trow-dist-'+idx+'" style="width:100%;background:#1e293b;border:1px solid #475569;border-radius:5px;padding:5px 8px;color:#f1f5f9;font-size:12px">' +
+      '<option value="" style="background:#1e293b;color:#f1f5f9">— District —</option>'+distOpts+'</select></td>' +
+    '<td style="padding:6px 8px"><select id="trow-tal-'+idx+'" style="width:100%;background:#1e293b;border:1px solid #475569;border-radius:5px;padding:5px 8px;color:#f1f5f9;font-size:12px">' +
+      '<option value="" style="background:#1e293b;color:#f1f5f9">— Taluka —</option>'+talOpts+'</select></td>' +
     '<td style="padding:6px 8px"><input id="trow-from-'+idx+'" type="number" step="0.001" value="'+(row.chainage_from||'')+'" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:12px" placeholder="0.000"></td>' +
     '<td style="padding:6px 8px"><input id="trow-to-'+idx+'" type="number" step="0.001" value="'+(row.chainage_to||'')+'" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:12px" placeholder="0.000"></td>' +
     '<td style="padding:6px 8px;text-align:center;font-family:monospace;font-size:12px;color:#4ade80;font-weight:700" id="trow-len-'+idx+'">'+(row.length ? row.length+' km' : '—')+'</td>' +
@@ -3894,8 +3894,8 @@ function attachTalukaRowEvents(idx) {
 
   distSel.addEventListener('change', function() {
     var d = this.value;
-    talSel.innerHTML = '<option value="">— Taluka —</option>' +
-      (MH_DISTRICTS[d]||[]).map(t=>'<option value="'+t+'">'+t+'</option>').join('');
+    talSel.innerHTML = '<option value="" style="background:#1e293b;color:#f1f5f9">— Taluka —</option>' +
+      (MH_DISTRICTS[d]||[]).map(t=>'<option value="'+t+'" style="background:#1e293b;color:#f1f5f9">'+t+'</option>').join('');
     _stretchTalukaRows[idx].district = d;
     _stretchTalukaRows[idx].taluka = '';
     updateTalukaBalance();
