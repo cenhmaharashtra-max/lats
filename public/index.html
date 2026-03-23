@@ -3952,8 +3952,8 @@ function renderStretchPanel(nh) {
   const panel = document.getElementById('stretch-panel');
   const isAdmin = currentUser.role === 'admin';
   const stretches = nhState.stretches[nh.id] || [];
-  const nhFrom = parseFloat(nh.chainage_from)||0;
-  const nhTo   = parseFloat(nh.chainage_to)||0;
+  const nhFrom = (nh.chainage_from !== null && nh.chainage_from !== '') ? parseFloat(nh.chainage_from) : 0;
+  const nhTo   = (nh.chainage_to !== null && nh.chainage_to !== '') ? parseFloat(nh.chainage_to) : 0;
   const nhLen  = nhTo - nhFrom;
   const coveredKm = stretches.reduce((s,x) => s + (parseFloat(x.chainage_to)-parseFloat(x.chainage_from)), 0);
   const pct = nhLen > 0 ? Math.min(100,(coveredKm/nhLen*100)).toFixed(1) : 0;
@@ -4245,7 +4245,7 @@ function openStretchModal(nhId, id) {
   const nhFrom = (nh.chainage_from !== null && nh.chainage_from !== '') ? parseFloat(nh.chainage_from) : 0;
   const nhTo   = (nh.chainage_to !== null && nh.chainage_to !== '') ? parseFloat(nh.chainage_to) : 0;
   const otherStretches = stretches.filter(x => x.id !== id);
-  const nextFrom = s ? parseFloat(s.chainage_from) : getNextChainageFrom(nhFrom, otherStretches);
+  const nextFrom = s ? ((s.chainage_from !== null && s.chainage_from !== '') ? parseFloat(s.chainage_from) : 0) : getNextChainageFrom(nhFrom, otherStretches);
   const gaps = getChainageGaps(nhFrom, nhTo, otherStretches);
   const divisions = [...new Set(DB.users ? DB.users.filter(u=>u.division).map(u=>u.division) : [])];
   const userDiv = currentUser.division || '';
@@ -4276,7 +4276,7 @@ function openStretchModal(nhId, id) {
       </div>
       <div class="field">
         <label class="required">Chainage To (km)</label>
-        <input id="sf-to" type="number" step="0.001" value="${s?.chainage_to||''}" placeholder="${nhTo}">
+        <input id="sf-to" type="number" step="0.001" value="${s ? ((s.chainage_to !== null && s.chainage_to !== '') ? s.chainage_to : '') : ''}" placeholder="${nhTo}">
         <div id="sf-to-err" style="font-size:11px;color:#f87171;margin-top:3px;display:none"></div>
       </div>
       <div class="field"><label>Length (km) <span style="font-size:10px;color:#4ade80">(auto)</span></label>
@@ -4416,7 +4416,7 @@ function openStretchModal(nhId, id) {
   });
 
   // Init length display if editing
-  if (s && s.chainage_from !== null && s.chainage_from !== '' && s.chainage_to) {
+  if (s && s.chainage_from !== null && s.chainage_from !== '' && s.chainage_to !== null && s.chainage_to !== '') {
     document.getElementById('sf-len').value = (parseFloat(s.chainage_to)-parseFloat(s.chainage_from)).toFixed(3);
   }
 
