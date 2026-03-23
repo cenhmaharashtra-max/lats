@@ -4017,7 +4017,7 @@ function renderStretchPanel(nh) {
   renderStretchRows(nh);
   if (isAdmin) {
     document.getElementById('edit-nh-btn')?.addEventListener('click', () => openNHModal(nh.id));
-    document.getElementById('add-stretch-btn')?.addEventListener('click', () => openStretchModal(nh.id, null));
+    document.getElementById('add-stretch-btn')?.addEventListener('click', async () => await openStretchModal(nh.id, null));
   }
 }
 
@@ -4238,7 +4238,7 @@ function updateTalukaBalance() {
   }
 }
 
-function openStretchModal(nhId, id) {
+async function openStretchModal(nhId, id) {
   const nh = nhState.nhList.find(x=>x.id===nhId);
   const s = id ? (nhState.stretches[nhId]||[]).find(x=>x.id===id) : null;
   const stretches = nhState.stretches[nhId] || [];
@@ -4247,8 +4247,9 @@ function openStretchModal(nhId, id) {
   const otherStretches = stretches.filter(x => x.id !== id);
   const nextFrom = s ? parseFloat(s.chainage_from) : getNextChainageFrom(nhFrom, otherStretches);
   const gaps = getChainageGaps(nhFrom, nhTo, otherStretches);
-  const divisions = [...new Set(DB.users ? DB.users.filter(u=>u.division).map(u=>u.division) : [])];
-  const userDiv = currentUser.division || '';
+  try { DB.users = await api('GET','/api/auth/users'); } catch(e) {}
+const divisions = [...new Set((DB.users||[]).filter(u=>u.division&&u.division.trim()).map(u=>u.division.trim()))].sort();
+const userDiv = (DB.users||[]).find(u=>u.id===currentUser.id)?.division || '';
   const curDiv = s?.division || userDiv;
 
   // Load existing taluka rows
