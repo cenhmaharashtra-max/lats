@@ -1104,26 +1104,6 @@ async function populateLoginDropdown() {
     console.error('Login dropdown error:', e);
   }
 }
-    const admin = users.find(u => u.username === 'CENH');
-    if (admin) {
-      const o = document.createElement('option');
-      o.value = admin.username;
-      o.textContent = admin.username + ' (Admin)';
-      sel.appendChild(o);
-    }
-    users.filter(u => u.role !== 'admin')
-      .sort((a,b) => a.username.localeCompare(b.username))
-      .forEach(u => {
-        const o = document.createElement('option');
-        o.value = u.username;
-        o.textContent = u.username;
-        sel.appendChild(o);
-      });
-  } catch(e) {
-    document.getElementById('login-error').textContent = 'Connection error: ' + e.message;
-    console.error('Login dropdown error:', e);
-  }
-}
 async function doLogin() {
   const username = (document.getElementById('login-user')?.value||'').trim();
   const password = document.getElementById('login-pass').value;
