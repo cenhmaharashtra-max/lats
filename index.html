@@ -829,10 +829,6 @@ async function authLogin({username, password}) {
   sessionStorage.setItem('lats_user', JSON.stringify(user));
   return user;
 }
-  window._currentSessionUser = user;
-  sessionStorage.setItem('lats_user', JSON.stringify(user));
-  return user;
-}
 
 function authLogout() {
   window._currentSessionUser = null;
