@@ -630,9 +630,7 @@ tr:hover td { background: var(--card-hover); }
     </div>
     <div class="field">
       <label>Username</label>
-      <select id="login-user" style="width:100%">
-        <option value="">— Select Username —</option>
-      </select>
+      <input type="text" id="login-user" style="width:100%" placeholder="Enter username" autocomplete="username">
     </div>
     <div class="field">
       <label>Password</label>
@@ -823,9 +821,14 @@ async function authUsernames() {
 }
 
 async function authLogin({username, password}) {
-  const bcrypt_check = await sbRpc('lats_login', {p_username: username, p_password: password});
+  const result = await sbRpc('lats_login', {p_username: username, p_password: password});
+  const bcrypt_check = Array.isArray(result) ? result[0] : result;
   if (!bcrypt_check || !bcrypt_check.id) throw new Error('Invalid credentials');
-  const user = { id: bcrypt_check.id, username: bcrypt_check.username, name: bcrypt_check.name, role: bcrypt_check.role };
+  const user = { id: bcrypt_check.id, username: bcrypt_check.username, name: bcrypt_check.name, role: bcrypt_check.role, division: bcrypt_check.division };
+  window._currentSessionUser = user;
+  sessionStorage.setItem('lats_user', JSON.stringify(user));
+  return user;
+}
   window._currentSessionUser = user;
   sessionStorage.setItem('lats_user', JSON.stringify(user));
   return user;
@@ -1074,10 +1077,16 @@ let currentUser = null;
 
 async function populateLoginDropdown() {
   const sel = document.getElementById('login-user');
+  const errEl = document.getElementById('login-error');
   if (!sel) return;
   try {
-    const users = await authUsernames();
-    if (!users || !users.length) return;
+    errEl.textContent = 'Loading...';
+    const users = await sbFetch('/rest/v1/lats_users?select=username,role&order=username');
+    if (!users || !users.length) {
+      errEl.textContent = 'No users found. Please run the SQL schema in Supabase first.';
+      return;
+    }
+    errEl.textContent = '';
     sel.innerHTML = '<option value="">— Select Username —</option>';
     const admin = users.find(u => u.username === 'CENH');
     if (admin) {
@@ -1095,10 +1104,30 @@ async function populateLoginDropdown() {
         sel.appendChild(o);
       });
   } catch(e) {
-    console.error('Could not load usernames:', e);
+    errEl.textContent = 'Error: ' + e.message;
+    console.error('Login dropdown error:', e);
   }
 }
-
+    const admin = users.find(u => u.username === 'CENH');
+    if (admin) {
+      const o = document.createElement('option');
+      o.value = admin.username;
+      o.textContent = admin.username + ' (Admin)';
+      sel.appendChild(o);
+    }
+    users.filter(u => u.role !== 'admin')
+      .sort((a,b) => a.username.localeCompare(b.username))
+      .forEach(u => {
+        const o = document.createElement('option');
+        o.value = u.username;
+        o.textContent = u.username;
+        sel.appendChild(o);
+      });
+  } catch(e) {
+    document.getElementById('login-error').textContent = 'Connection error: ' + e.message;
+    console.error('Login dropdown error:', e);
+  }
+}
 async function doLogin() {
   const username = (document.getElementById('login-user')?.value||'').trim();
   const password = document.getElementById('login-pass').value;
