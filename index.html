@@ -809,7 +809,7 @@ async function apiRoute(method, url, body) {
 
 // ── Body helpers ──
 function nhNull(v) { return (v !== undefined && v !== null && v !== '') ? v : null; }
-function nhBody(b) { return { nh_number:b.nh_number, description:nhNull(b.description), chainage_from:nhNull(b.chainage_from), chainage_to:nhNull(b.chainage_to), length:nhNull(b.length), state:nhNull(b.state) }; }
+function nhBody(b) { return { nh_number:b.nh_number, description:nhNull(b.description), chainage_from:nhNull(b.chainage_from), chainage_to:nhNull(b.chainage_to), length:nhNull(b.length), state:nhNull(b.state), place_from:nhNull(b.place_from), place_to:nhNull(b.place_to) }; }
 function stretchBody(b) { return { name:nhNull(b.name), chainage_from:nhNull(b.chainage_from), chainage_to:nhNull(b.chainage_to), length:nhNull(b.length), description:nhNull(b.description), district:nhNull(b.district), taluka:nhNull(b.taluka), division:nhNull(b.division), project_id:b.project_id?parseInt(b.project_id):null }; }
 function contractBody(d) {
   const pct = (d.cost_put_to_tender && d.contract_price) ? (1 - parseFloat(d.contract_price)/parseFloat(d.cost_put_to_tender)) : null;
@@ -4376,8 +4376,10 @@ function openNHModal(id) {
   openModal(nh ? 'Edit NH' : 'Add NH Number', `
     <div class="form-grid cols-2">
       <div class="field" style="grid-column:1/-1"><label class="required">NH Number</label><input id="nhf-num" value="${nh?.nh_number||''}" placeholder="e.g. NH753C"></div>
-      <div class="field"><label class="required">Chainage From (km)</label><input id="nhf-from" type="number" value="${nh?.chainage_from||''}" placeholder="0.000"></div>
+      <div class="field"><label class="required">Chainage From (km)</label><input id="nhf-from" type="number" value="${nh?.chainage_from!==null&&nh?.chainage_from!==undefined?nh.chainage_from:''}" placeholder="0.000"></div>
+      <div class="field"><label>Place Name at Chainage From</label><input id="nhf-place-from" value="${nh?.place_from||''}" placeholder="e.g. Pune, Nashik"></div>
       <div class="field"><label class="required">Chainage To (km)</label><input id="nhf-to" type="number" value="${nh?.chainage_to||''}" placeholder="100.000"></div>
+      <div class="field"><label>Place Name at Chainage To</label><input id="nhf-place-to" value="${nh?.place_to||''}" placeholder="e.g. Mumbai, Aurangabad"></div>
       <div class="field"><label>Total Length (km)</label><input id="nhf-len" type="number" value="${nh?.length||''}" placeholder="Auto from chainages"></div>
       <div class="field"><label>State</label><input id="nhf-state" value="${nh?.state||''}" placeholder="e.g. Maharashtra"></div>
       <div class="field" style="grid-column:1/-1"><label>Description</label><input id="nhf-desc" value="${nh?.description||''}" placeholder="Optional description"></div>
