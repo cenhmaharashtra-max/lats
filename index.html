@@ -810,7 +810,7 @@ async function apiRoute(method, url, body) {
 // ── Body helpers ──
 function nhNull(v) { return (v !== undefined && v !== null && v !== '') ? v : null; }
 function nhBody(b) { return { nh_number:b.nh_number, description:nhNull(b.description), chainage_from:nhNull(b.chainage_from), chainage_to:nhNull(b.chainage_to), length:nhNull(b.length), state:nhNull(b.state), place_from:nhNull(b.place_from), place_to:nhNull(b.place_to) }; }
-function stretchBody(b) { return { name:nhNull(b.name), chainage_from:nhNull(b.chainage_from), chainage_to:nhNull(b.chainage_to), length:nhNull(b.length), description:nhNull(b.description), district:nhNull(b.district), taluka:nhNull(b.taluka), division:nhNull(b.division), project_id:b.project_id?parseInt(b.project_id):null }; }
+function stretchBody(b) { return { name:nhNull(b.name), place_from:nhNull(b.place_from), place_to:nhNull(b.place_to), chainage_from:nhNull(b.chainage_from), chainage_to:nhNull(b.chainage_to), length:nhNull(b.length), description:nhNull(b.description), district:nhNull(b.district), taluka:nhNull(b.taluka), division:nhNull(b.division), project_id:b.project_id?parseInt(b.project_id):null }; }
 function contractBody(d) {
   const pct = (d.cost_put_to_tender && d.contract_price) ? (1 - parseFloat(d.contract_price)/parseFloat(d.cost_put_to_tender)) : null;
   return { project_id:d.project_id?parseInt(d.project_id):null, stretch_id:d.stretch_id?parseInt(d.stretch_id):null, project_type_id:d.project_type_id?parseInt(d.project_type_id):null, contractor_name:nhNull(d.contractor_name), contractor_address:nhNull(d.contractor_address), contractor_contact:nhNull(d.contractor_contact), cost_put_to_tender:nhNull(d.cost_put_to_tender), contract_price:nhNull(d.contract_price), pct_above_below:pct, agreement_date:nhNull(d.agreement_date), appointed_date:nhNull(d.appointed_date), schedule_completion:nhNull(d.schedule_completion), eot_date:nhNull(d.eot_date), dlp_date:nhNull(d.dlp_date), remarks:nhNull(d.remarks) };
@@ -4271,7 +4271,7 @@ function renderStretchPanel(nh) {
         <div style="font-size:12px;color:var(--text-dim);margin-top:2px">Ch. ${nh.chainage_from!==null&&nh.chainage_from!==undefined?nh.chainage_from:'?'} to ${nh.chainage_to||'?'} km${nh.state?' | '+nh.state:''}</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        ${isAdmin ? '<button class="btn btn-secondary btn-sm" id="edit-nh-btn">✎ Edit NH</button>' : ''}
+        ${isAdmin ? '<button class="btn btn-secondary btn-sm" id="edit-nh-btn">✎ Edit NH</button><button class="btn btn-danger btn-sm" id="del-nh-btn" style="margin-left:6px">🗑 Delete NH</button>' : ''}
         ${!fullyDone ? '<button class="btn btn-primary btn-sm" id="add-stretch-btn">+ Add Stretch</button>' : ''}
       </div>
     </div>
@@ -4322,6 +4322,17 @@ function renderStretchPanel(nh) {
   if (isAdmin) {
     document.getElementById('edit-nh-btn')?.addEventListener('click', () => openNHModal(nh.id));
     document.getElementById('add-stretch-btn')?.addEventListener('click', () => openStretchModal(nh.id, null));
+    document.getElementById('del-nh-btn')?.addEventListener('click', () => {
+      confirmModal('Delete NH <strong>'+nh.nh_number+'</strong> and all its stretches?', async () => {
+        await api('DELETE','/api/nh/'+nh.id);
+        nhState.nhList = nhState.nhList.filter(x=>x.id!==nh.id);
+        delete nhState.stretches[nh.id];
+        nhState.selectedNH = null;
+        renderNHList();
+        document.getElementById('stretch-panel').innerHTML = '<div class="panel-body" style="text-align:center;padding:40px;color:var(--text-dim)"><div style="font-size:36px;margin-bottom:12px">🛣</div><p>Select an NH from the left to view its stretches.</p></div>';
+        showToast('NH deleted','info');
+      });
+    });
   }
 }
 
@@ -4573,8 +4584,12 @@ function openStretchModal(nhId, id) {
   openModal((s?'Edit':'Add')+' Stretch — '+nh.nh_number, `
     ${gapHint}
     <div class="form-grid cols-2" style="margin-bottom:16px">
-      <div class="field" style="grid-column:1/-1"><label class="required">Stretch Name</label>
-        <input id="sf-name" value="${s?.name||''}" placeholder="e.g. Km ${nextFrom} to Km ... Section"></div>
+      <div class="form-grid cols-2" style="grid-column:1/-1;margin-bottom:0">
+        <div class="field"><label class="required">Place Name From</label>
+          <input id="sf-place-from" value="${s?.place_from||''}" placeholder="e.g. Pune, Nashik"></div>
+        <div class="field"><label class="required">Place Name To</label>
+          <input id="sf-place-to" value="${s?.place_to||''}" placeholder="e.g. Mumbai, Aurangabad"></div>
+      </div>
       <div class="field">
         <label class="required">Chainage From (km)</label>
         <input id="sf-from" type="number" step="0.001" value="${nextFrom}" placeholder="${nhFrom}">
@@ -4630,14 +4645,16 @@ function openStretchModal(nhId, id) {
   `, [
     { label:'Cancel', cls:'btn-secondary', action:closeModal },
     { label: s ? 'Update Stretch' : 'Add Stretch', cls:'btn-primary', action: async () => {
-      const name = document.getElementById('sf-name').value.trim();
+      const placeFrom = document.getElementById('sf-place-from').value.trim();
+      const placeTo = document.getElementById('sf-place-to').value.trim();
+      const name = (placeFrom && placeTo) ? placeFrom + ' to ' + placeTo : (placeFrom || placeTo || 'Ch.'+from+' to Ch.'+to);
       const from = parseFloat(document.getElementById('sf-from').value);
       const to   = parseFloat(document.getElementById('sf-to').value);
 
       document.getElementById('sf-from-err').style.display = 'none';
       document.getElementById('sf-to-err').style.display   = 'none';
 
-      if (!name) { showToast('Stretch name is required','error'); return; }
+      if (!placeFrom && !placeTo) { showToast('Place Name From or To is required','error'); return; }
       if (isNaN(from)||isNaN(to)) { showToast('Chainage From and To are required','error'); return; }
       if (to <= from) {
         document.getElementById('sf-to-err').textContent = 'Chainage To must be greater than Chainage From.';
@@ -4670,7 +4687,7 @@ function openStretchModal(nhId, id) {
       }
 
       const len = (to-from).toFixed(3);
-      const body = { name, chainage_from:from, chainage_to:to, length:len,
+      const body = { name, place_from:placeFrom, place_to:placeTo, chainage_from:from, chainage_to:to, length:len,
         description:document.getElementById('sf-desc').value,
         district: talukaRows.length>0 ? [...new Set(talukaRows.map(r=>r.district))].join(', ') : '',
         taluka:   talukaRows.length>0 ? [...new Set(talukaRows.map(r=>r.taluka).filter(Boolean))].join(', ') : '',
