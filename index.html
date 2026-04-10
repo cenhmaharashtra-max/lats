@@ -1125,7 +1125,8 @@ async function doLogin() {
 }
 
 async function doLogout() {
-  clearSession();
+  window._currentSessionUser = null;
+  sessionStorage.removeItem('lats_user');
   currentUser=null;
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').style.display='none';
