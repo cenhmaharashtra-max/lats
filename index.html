@@ -839,26 +839,30 @@ function authLogout() {
 }
 
 async function authGetUsers() {
-  return sbFetch('/rest/v1/lats_users?select=id,username,name,role,division&order=id');
+  return sbFetch('/rest/v1/lats_users?select=id,username,name,role,division,parent_id&order=id');
 }
 
-async function authCreateUser({username, password, name, role}) {
+async function authCreateUser({username, password, name, role, parent_id}) {
   const r = await sbRpc('lats_create_user', {p_username: username, p_password: password, p_name: name||username});
-  // Update role after creation if not viewer
-  if (r && r.id && role && role !== 'viewer') {
-    await sbFetch('/rest/v1/lats_users?id=eq.'+r.id, {method:'PATCH', body:{role}, headers:{'Prefer':'return=representation'}});
+  // Update role and parent after creation
+  const patch = {};
+  if (role && role !== 'viewer') patch.role = role;
+  if (parent_id) patch.parent_id = parseInt(parent_id);
+  if (r && r.id && Object.keys(patch).length > 0) {
+    await sbFetch('/rest/v1/lats_users?id=eq.'+r.id, {method:'PATCH', body:patch, headers:{'Prefer':'return=representation'}});
   }
   if (r && r.error) throw new Error(r.error);
   return r;
 }
 
-async function authUpdateUser(id, {name, password, role}) {
+async function authUpdateUser(id, {name, password, role, parent_id}) {
   if (password) {
     await sbRpc('lats_set_password', {p_user_id: parseInt(id), p_password: password});
   }
   const patch = {};
   if (name) patch.name = name;
   if (role) patch.role = role;
+  if (parent_id !== undefined) patch.parent_id = parent_id;
   if (Object.keys(patch).length > 0) {
     await sbFetch('/rest/v1/lats_users?id=eq.'+id, {method:'PATCH', body:patch, headers:{'Prefer':'return=representation'}});
   }
@@ -1921,84 +1925,165 @@ async function renderUsers() {
   if (currentUser.role === 'admin') {
     try { DB.users = await api('GET', '/api/auth/users'); } catch(e) {}
   }
-  const allUsers = DB.users;
-  const roleOrder = { 'admin': 1, 'nh_circle': 2, 'nh_division': 3, 'viewer': 4 };
-  const roleLabel = { 'admin': '⭐ Admin', 'nh_circle': '🔵 NH Circle', 'nh_division': '🟢 NH Division', 'viewer': '👤 User' };
-  const roleBadge = { 'admin': 'badge-admin', 'nh_circle': 'badge-3a', 'nh_division': 'badge-complete', 'viewer': 'badge-user' };
-  const sorted = [...allUsers].sort((a,b) => (roleOrder[a.role]||9) - (roleOrder[b.role]||9));
 
-  document.getElementById('page-content').innerHTML = `
-    <div class="panel">
-      <div class="panel-header">
-        <h3>System Users (${allUsers.length})</h3>
-        <button class="btn btn-primary" onclick="showUserModal()">+ Create User</button>
+  const allUsers = DB.users;
+  const circles = allUsers.filter(u => u.role === 'nh_circle');
+  const divisions = allUsers.filter(u => u.role === 'nh_division');
+  const admins = allUsers.filter(u => u.role === 'admin');
+
+  const c = document.getElementById('page-content');
+  c.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+      <!-- NH Circle Section -->
+      <div class="panel">
+        <div class="panel-header">
+          <h3>🔵 NH Circle Registrations</h3>
+          <button class="btn btn-primary btn-sm" onclick="showUserModal(null,'nh_circle')">+ Add Circle</button>
+        </div>
+        <div class="panel-body" style="padding:0">
+          ${circles.length === 0
+            ? '<div class="empty-state" style="padding:24px"><div class="icon" style="font-size:32px">🔵</div><p>No NH Circles yet</p></div>'
+            : '<table style="width:100%;border-collapse:collapse">' +
+              '<thead><tr style="background:var(--surface)">' +
+              '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Circle Name</th>' +
+              '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Username</th>' +
+              '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Divisions</th>' +
+              '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Actions</th>' +
+              '</tr></thead><tbody>' +
+              circles.map(u => {
+                const divCount = divisions.filter(d => d.parent_id === u.id).length;
+                return '<tr style="border-top:1px solid var(--border)">' +
+                  '<td style="padding:12px 14px"><strong>' + u.name + '</strong></td>' +
+                  '<td style="padding:12px 14px;color:var(--text-dim)">' + u.username + '</td>' +
+                  '<td style="padding:12px 14px"><span class="badge badge-3a">' + divCount + ' divisions</span></td>' +
+                  '<td style="padding:12px 14px">' +
+                  '<button class="btn btn-secondary btn-sm" onclick="showUserModal(' + u.id + ',\'nh_circle\')">✎ Edit</button>' +
+                  '<button class="btn btn-danger btn-sm" onclick="deleteUser(' + u.id + ')" style="margin-left:4px">🗑</button>' +
+                  '</div></td>' +
+                  '</tr>';
+              }).join('') +
+              '</tbody></table>'
+          }
+        </div>
       </div>
-      <div class="panel-body">
-        ${sorted.length === 0 ? '<div class="empty-state"><div class="icon">👥</div><h3>No Users Yet</h3></div>' :
-        '<div class="table-wrap"><table>' +
-        '<thead><tr><th>#</th><th>Username</th><th>Name</th><th>Role</th><th>Assigned Projects</th><th>Actions</th></tr></thead>' +
-        '<tbody>' + sorted.map((u,i) => {
-          const projs = (DB.assignments || []).filter(a => a.uid === u.id)
-            .map(a => DB.projects.find(p => p.id === a.pid)?.name || '')
-            .filter(Boolean);
-          const badge = roleBadge[u.role] || 'badge-user';
-          const label = roleLabel[u.role] || u.role;
-          return '<tr>' +
-            '<td class="mono">'+(i+1)+'</td>' +
-            '<td><strong>'+u.username+'</strong></td>' +
-            '<td>'+u.name+'</td>' +
-            '<td><span class="badge '+badge+'">'+label+'</span></td>' +
-            '<td>'+(projs.length ? projs.map(n=>'<span class="chip">'+n+'</span>').join('') : '<span class="text-muted">None</span>')+'</td>' +
-            '<td><div class="flex gap-2">' +
-            '<button class="btn btn-secondary btn-sm" onclick="showUserModal('+u.id+')">Edit</button>' +
-            (u.username !== 'CENH' ? '<button class="btn btn-danger btn-sm" onclick="deleteUser('+u.id+')">Delete</button>' : '') +
-            '</div></td>' +
-            '</tr>';
-        }).join('') +
-        '</tbody></table></div>'}
+
+      <!-- NH Division Section -->
+      <div class="panel">
+        <div class="panel-header">
+          <h3>🟢 NH Division Registrations</h3>
+          <button class="btn btn-primary btn-sm" onclick="showUserModal(null,'nh_division')">+ Add Division</button>
+        </div>
+        <div class="panel-body" style="padding:0">
+          ${divisions.length === 0
+            ? '<div class="empty-state" style="padding:24px"><div class="icon" style="font-size:32px">🟢</div><p>No NH Divisions yet</p></div>'
+            : '<table style="width:100%;border-collapse:collapse">' +
+              '<thead><tr style="background:var(--surface)">' +
+              '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Division Name</th>' +
+              '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Username</th>' +
+              '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Under Circle</th>' +
+              '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Actions</th>' +
+              '</tr></thead><tbody>' +
+              divisions.map(u => {
+                const circle = circles.find(c => c.id === u.parent_id);
+                return '<tr style="border-top:1px solid var(--border)">' +
+                  '<td style="padding:12px 14px"><strong>' + u.name + '</strong></td>' +
+                  '<td style="padding:12px 14px;color:var(--text-dim)">' + u.username + '</td>' +
+                  '<td style="padding:12px 14px">' + (circle ? '<span class="badge badge-3a">🔵 ' + circle.name + '</span>' : '<span style="color:#f87171">Not assigned</span>') + '</td>' +
+                  '<td style="padding:12px 14px">' +
+                  '<button class="btn btn-secondary btn-sm" onclick="showUserModal(' + u.id + ',\'nh_division\')">✎ Edit</button>' +
+                  '<button class="btn btn-danger btn-sm" onclick="deleteUser(' + u.id + ')" style="margin-left:4px">🗑</button>' +
+                  '</td>' +
+                  '</tr>';
+              }).join('') +
+              '</tbody></table>'
+          }
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Admin section -->
+    <div class="panel" style="margin-top:20px">
+      <div class="panel-header">
+        <h3>⭐ Administrator</h3>
+      </div>
+      <div class="panel-body" style="padding:0">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--surface)">
+            <th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Name</th>
+            <th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Username</th>
+            <th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Role</th>
+            <th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Actions</th>
+          </tr></thead>
+          <tbody>
+            ${admins.map(u => '<tr style="border-top:1px solid var(--border)">' +
+              '<td style="padding:12px 14px"><strong>' + u.name + '</strong></td>' +
+              '<td style="padding:12px 14px;color:var(--text-dim)">' + u.username + '</td>' +
+              '<td style="padding:12px 14px"><span class="badge badge-admin">⭐ Admin</span></td>' +
+              '<td style="padding:12px 14px"><button class="btn btn-secondary btn-sm" onclick="showUserModal(' + u.id + ',\'admin\')">✎ Edit Password</button></td>' +
+              '</tr>').join('')}
+          </tbody>
+        </table>
       </div>
     </div>
   `;
 }
 
-function showUserModal(id) {
+
+function showUserModal(id, forceRole) {
   const u = id ? DB.users.find(x => x.id === id) : null;
+  const role = forceRole || u?.role || 'viewer';
   const isAdminUser = u?.username === 'CENH';
-  openModal(u ? 'Edit User' : 'Create New User', `
+  const circles = DB.users.filter(x => x.role === 'nh_circle');
+  const roleTitle = { 'admin':'Admin', 'nh_circle':'NH Circle', 'nh_division':'NH Division' };
+  const title = isAdminUser ? 'Edit Admin Password' : (u ? 'Edit ' + (roleTitle[role]||'User') : 'Add ' + (roleTitle[role]||'User'));
+
+  const circleSelect = role === 'nh_division' ? `
+    <div class="field" style="grid-column:1/-1">
+      <label class="required">Under NH Circle</label>
+      <select id="uf-parent">
+        <option value="">— Select NH Circle —</option>
+        ${circles.map(c => '<option value="'+c.id+'"'+(u?.parent_id===c.id?' selected':'')+'>'+c.name+'</option>').join('')}
+      </select>
+    </div>` : '';
+
+  openModal(title, `
     <div class="form-grid cols-2">
-      <div class="field"><label class="required">Username</label><input id="uf-user" value="${u?.username||''}" placeholder="Enter username" ${isAdminUser?'readonly':''}></div>
-      <div class="field"><label class="required">Full Name</label><input id="uf-name" value="${u?.name||''}" placeholder="Enter full name"></div>
-      <div class="field"><label class="${u?'':'required'}">Password ${u?'(leave blank to keep current)':''}</label><input type="password" id="uf-pass" placeholder="Enter password"></div>
-      <div class="field"><label class="required">Role</label>
-        <select id="uf-role" ${isAdminUser?'disabled':''}>
-          <option value="admin" ${(u?.role==='admin')?'selected':''}>⭐ Admin</option>
-          <option value="nh_circle" ${(u?.role==='nh_circle')?'selected':''}>🔵 NH Circle</option>
-          <option value="nh_division" ${(u?.role==='nh_division')?'selected':''}>🟢 NH Division</option>
-          <option value="viewer" ${(!u||u?.role==='viewer')?'selected':''}>👤 User</option>
-        </select>
+      ${!isAdminUser ? '<div class="field"><label class="required">Username</label><input id="uf-user" value="'+(u?.username||'')+'" placeholder="Enter username"></div>' : ''}
+      ${!isAdminUser ? '<div class="field"><label class="required">Full Name</label><input id="uf-name" value="'+(u?.name||'')+'" placeholder="e.g. Nashik Circle"></div>' : ''}
+      <div class="field" style="${isAdminUser?'grid-column:1/-1':''}">
+        <label class="${u?'':'required'}">Password ${u?'(leave blank to keep)':''}</label>
+        <input type="password" id="uf-pass" placeholder="Enter password">
       </div>
+      <input type="hidden" id="uf-role" value="${role}">
+      ${circleSelect}
     </div>
   `, [
     { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
-    { label: u ? 'Update User' : 'Create User', cls: 'btn-primary', action: () => saveUser(id) }
+    { label: u ? 'Update' : 'Create', cls: 'btn-primary', action: () => saveUser(id, isAdminUser) }
   ]);
 }
 
-async function saveUser(id) {
-  const username = document.getElementById('uf-user').value.trim();
-  const fullname = document.getElementById('uf-name').value.trim();
+async function saveUser(id, isAdminUser) {
+  const username = isAdminUser ? 'CENH' : document.getElementById('uf-user')?.value.trim();
+  const fullname = isAdminUser ? 'Administrator' : document.getElementById('uf-name')?.value.trim();
   const password = document.getElementById('uf-pass').value;
   const role = document.getElementById('uf-role')?.value || 'viewer';
-  if (!username) { showToast('Username is required.', 'error'); return; }
-  if (!fullname) { showToast('Full name is required.', 'error'); return; }
+  const parentId = document.getElementById('uf-parent')?.value || null;
+
+  if (!isAdminUser && !username) { showToast('Username is required.', 'error'); return; }
+  if (!isAdminUser && !fullname) { showToast('Full name is required.', 'error'); return; }
   if (!id && !password) { showToast('Password is required.', 'error'); return; }
+  if (role === 'nh_division' && !parentId) { showToast('Please select a NH Circle.', 'error'); return; }
+
   try {
     if (id) {
-      await api('PUT', `/api/auth/users/${id}`, { name: fullname, password: password||undefined, role });
-      showToast('User updated.', 'success');
+      await api('PUT', `/api/auth/users/${id}`, { name: fullname, password: password||undefined, role, parent_id: parentId ? parseInt(parentId) : null });
+      showToast('Updated successfully.', 'success');
     } else {
-      await api('POST', '/api/auth/users', { username, password, name: fullname, role });
-      showToast('User created.', 'success');
+      await api('POST', '/api/auth/users', { username, password, name: fullname, role, parent_id: parentId ? parseInt(parentId) : null });
+      showToast('Created successfully.', 'success');
     }
     DB.users = await api('GET', '/api/auth/users');
     closeModal(); renderUsers(); populateLoginDropdown();
