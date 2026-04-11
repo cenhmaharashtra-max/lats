@@ -842,18 +842,25 @@ async function authGetUsers() {
   return sbFetch('/rest/v1/lats_users?select=id,username,name,role,division&order=id');
 }
 
-async function authCreateUser({username, password, name}) {
+async function authCreateUser({username, password, name, role}) {
   const r = await sbRpc('lats_create_user', {p_username: username, p_password: password, p_name: name||username});
+  // Update role after creation if not viewer
+  if (r && r.id && role && role !== 'viewer') {
+    await sbFetch('/rest/v1/lats_users?id=eq.'+r.id, {method:'PATCH', body:{role}, headers:{'Prefer':'return=representation'}});
+  }
   if (r && r.error) throw new Error(r.error);
   return r;
 }
 
-async function authUpdateUser(id, {name, password}) {
+async function authUpdateUser(id, {name, password, role}) {
   if (password) {
-    await sbRpc('lats_update_password', {p_id: parseInt(id), p_password: password});
+    await sbRpc('lats_set_password', {p_user_id: parseInt(id), p_password: password});
   }
-  if (name) {
-    await sbFetch('/rest/v1/lats_users?id=eq.'+id, {method:'PATCH', body:{name}, headers:{'Prefer':'return=representation'}});
+  const patch = {};
+  if (name) patch.name = name;
+  if (role) patch.role = role;
+  if (Object.keys(patch).length > 0) {
+    await sbFetch('/rest/v1/lats_users?id=eq.'+id, {method:'PATCH', body:patch, headers:{'Prefer':'return=representation'}});
   }
   return {ok:true};
 }
@@ -1914,35 +1921,41 @@ async function renderUsers() {
   if (currentUser.role === 'admin') {
     try { DB.users = await api('GET', '/api/auth/users'); } catch(e) {}
   }
-  const normalUsers = DB.users.filter(u => u.role !== 'admin');
+  const allUsers = DB.users;
+  const roleOrder = { 'admin': 1, 'nh_circle': 2, 'nh_division': 3, 'viewer': 4 };
+  const roleLabel = { 'admin': '⭐ Admin', 'nh_circle': '🔵 NH Circle', 'nh_division': '🟢 NH Division', 'viewer': '👤 User' };
+  const roleBadge = { 'admin': 'badge-admin', 'nh_circle': 'badge-3a', 'nh_division': 'badge-complete', 'viewer': 'badge-user' };
+  const sorted = [...allUsers].sort((a,b) => (roleOrder[a.role]||9) - (roleOrder[b.role]||9));
+
   document.getElementById('page-content').innerHTML = `
     <div class="panel">
       <div class="panel-header">
-        <h3>System Users (${normalUsers.length})</h3>
+        <h3>System Users (${allUsers.length})</h3>
         <button class="btn btn-primary" onclick="showUserModal()">+ Create User</button>
       </div>
       <div class="panel-body">
-        ${normalUsers.length === 0 ? `<div class="empty-state"><div class="icon">👥</div><h3>No Users Yet</h3><p>Create user accounts to assign projects.</p></div>` :
-        `<div class="table-wrap"><table>
-          <thead><tr><th>#</th><th>Username</th><th>Role</th><th>Assigned Projects</th><th>Actions</th></tr></thead>
-          <tbody>${normalUsers.map((u,i) => {
-            const projs = (DB.assignments || []).filter(a => a.uid === u.id)
-              .map(a => DB.projects.find(p => p.id === a.pid)?.name || '')
-              .filter(Boolean);
-            return `<tr>
-              <td class="mono">${i+1}</td>
-              <td><strong>${u.username}</strong></td>
-              <td><span class="badge badge-user">User</span></td>
-              <td>${projs.length ? projs.map(n => `<span class="chip">${n}</span>`).join('') : '<span class="text-muted">None assigned</span>'}</td>
-              <td>
-                <div class="flex gap-2">
-                  <button class="btn btn-secondary btn-sm" onclick="showUserModal(${u.id})">Edit</button>
-                  <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button>
-                </div>
-              </td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table></div>`}
+        ${sorted.length === 0 ? '<div class="empty-state"><div class="icon">👥</div><h3>No Users Yet</h3></div>' :
+        '<div class="table-wrap"><table>' +
+        '<thead><tr><th>#</th><th>Username</th><th>Name</th><th>Role</th><th>Assigned Projects</th><th>Actions</th></tr></thead>' +
+        '<tbody>' + sorted.map((u,i) => {
+          const projs = (DB.assignments || []).filter(a => a.uid === u.id)
+            .map(a => DB.projects.find(p => p.id === a.pid)?.name || '')
+            .filter(Boolean);
+          const badge = roleBadge[u.role] || 'badge-user';
+          const label = roleLabel[u.role] || u.role;
+          return '<tr>' +
+            '<td class="mono">'+(i+1)+'</td>' +
+            '<td><strong>'+u.username+'</strong></td>' +
+            '<td>'+u.name+'</td>' +
+            '<td><span class="badge '+badge+'">'+label+'</span></td>' +
+            '<td>'+(projs.length ? projs.map(n=>'<span class="chip">'+n+'</span>').join('') : '<span class="text-muted">None</span>')+'</td>' +
+            '<td><div class="flex gap-2">' +
+            '<button class="btn btn-secondary btn-sm" onclick="showUserModal('+u.id+')">Edit</button>' +
+            (u.username !== 'CENH' ? '<button class="btn btn-danger btn-sm" onclick="deleteUser('+u.id+')">Delete</button>' : '') +
+            '</div></td>' +
+            '</tr>';
+        }).join('') +
+        '</tbody></table></div>'}
       </div>
     </div>
   `;
@@ -1950,9 +1963,21 @@ async function renderUsers() {
 
 function showUserModal(id) {
   const u = id ? DB.users.find(x => x.id === id) : null;
+  const isAdminUser = u?.username === 'CENH';
   openModal(u ? 'Edit User' : 'Create New User', `
-    <div class="field"><label class="required">Username</label><input id="uf-user" value="${u?.username||''}" placeholder="Enter username"></div>
-    <div class="field"><label class="${u?'':'required'}">Password ${u?'(leave blank to keep current)':''}</label><input type="password" id="uf-pass" placeholder="Enter password"></div>
+    <div class="form-grid cols-2">
+      <div class="field"><label class="required">Username</label><input id="uf-user" value="${u?.username||''}" placeholder="Enter username" ${isAdminUser?'readonly':''}></div>
+      <div class="field"><label class="required">Full Name</label><input id="uf-name" value="${u?.name||''}" placeholder="Enter full name"></div>
+      <div class="field"><label class="${u?'':'required'}">Password ${u?'(leave blank to keep current)':''}</label><input type="password" id="uf-pass" placeholder="Enter password"></div>
+      <div class="field"><label class="required">Role</label>
+        <select id="uf-role" ${isAdminUser?'disabled':''}>
+          <option value="admin" ${(u?.role==='admin')?'selected':''}>⭐ Admin</option>
+          <option value="nh_circle" ${(u?.role==='nh_circle')?'selected':''}>🔵 NH Circle</option>
+          <option value="nh_division" ${(u?.role==='nh_division')?'selected':''}>🟢 NH Division</option>
+          <option value="viewer" ${(!u||u?.role==='viewer')?'selected':''}>👤 User</option>
+        </select>
+      </div>
+    </div>
   `, [
     { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
     { label: u ? 'Update User' : 'Create User', cls: 'btn-primary', action: () => saveUser(id) }
@@ -1961,15 +1986,18 @@ function showUserModal(id) {
 
 async function saveUser(id) {
   const username = document.getElementById('uf-user').value.trim();
+  const fullname = document.getElementById('uf-name').value.trim();
   const password = document.getElementById('uf-pass').value;
+  const role = document.getElementById('uf-role')?.value || 'viewer';
   if (!username) { showToast('Username is required.', 'error'); return; }
+  if (!fullname) { showToast('Full name is required.', 'error'); return; }
   if (!id && !password) { showToast('Password is required.', 'error'); return; }
   try {
     if (id) {
-      await api('PUT', `/api/auth/users/${id}`, { name: username, password: password||undefined });
+      await api('PUT', `/api/auth/users/${id}`, { name: fullname, password: password||undefined, role });
       showToast('User updated.', 'success');
     } else {
-      await api('POST', '/api/auth/users', { username, password, name: username });
+      await api('POST', '/api/auth/users', { username, password, name: fullname, role });
       showToast('User created.', 'success');
     }
     DB.users = await api('GET', '/api/auth/users');
