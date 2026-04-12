@@ -843,16 +843,15 @@ async function authGetUsers() {
 }
 
 async function authCreateUser({username, password, name, role, parent_id}) {
-  const raw = await sbRpc('lats_create_user', {p_username: username, p_password: password, p_name: name||username});
+  const raw = await sbRpc('lats_create_user', {
+    p_username: username,
+    p_password: password,
+    p_name: name||username,
+    p_role: role||'viewer',
+    p_parent_id: parent_id ? parseInt(parent_id) : null
+  });
   const r = Array.isArray(raw) ? raw[0] : raw;
   if (!r || r.error) throw new Error(r?.error || 'Failed to create user');
-  // Update role and parent after creation
-  const patch = {};
-  if (role && role !== 'viewer') patch.role = role;
-  if (parent_id) patch.parent_id = parseInt(parent_id);
-  if (r.id && Object.keys(patch).length > 0) {
-    await sbFetch('/rest/v1/lats_users?id=eq.'+r.id, {method:'PATCH', body:patch, headers:{'Prefer':'return=representation'}});
-  }
   return r;
 }
 
