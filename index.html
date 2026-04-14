@@ -1007,7 +1007,8 @@ function mapSync(d) {
     civilCost:p.civil_cost, laCost:p.la_cost, totalLand:p.total_land,
     availLand:p.avail_land, laRequired:p.la_required, laLength:p.la_length,
     laLengthTafs:p.la_length_tafs,
-    approvalDate:p.approval_date, assignedUsers:p.assigned_users||[]
+    approvalDate:p.approval_date, assignedUsers:p.assigned_users||[],
+    nhId:p.nh_id||null, division:p.division||''
   }));
   DB.villages = (d.villages||[]).map(v=>({
     id:v.id, projectId:v.project_id, name:v.name, taluka:v.taluka, isAddl:v.is_addl
@@ -1826,59 +1827,260 @@ function deleteProject(id) {
   if (btn) btn.click();
 }
 
-function showProjectModal(id) {
+function showProjectModal(id, nhId) {
   const p = id ? DB.projects.find(x => x.id === id) : null;
+  const linkedNhId = nhId || p?.nh_id || null;
   const title = p ? 'Edit Project' : 'Create New Project';
+
+  // Build chainage segments for this project
+  const existingChainages = id ? (nhState.projectChainages||[]).filter(pc => pc.project_id === id) : [];
+  window._projChainages = existingChainages.length > 0
+    ? existingChainages.map(pc => ({chainage_from:pc.chainage_from,chainage_to:pc.chainage_to,place_from:pc.place_from||'',place_to:pc.place_to||''}))
+    : [{chainage_from:'',chainage_to:'',place_from:'',place_to:''}];
+
+  const divisionUsers = (DB.users||[]).filter(u => u.role === 'nh_division');
+  const isDivUser = currentUser.role === 'nh_division';
+  const curDiv = p?.division || (isDivUser ? currentUser.name : '');
+
+  function buildChainageRows() {
+    return window._projChainages.map((pc,i) => `
+      <div id="pc-row-${i}" style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--card)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-size:12px;font-weight:600;color:var(--accent)">Chainage Segment ${i+1}</span>
+          ${i>0 ? '<button type="button" onclick="removeProjChainage('+i+')" style="background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.4);border-radius:4px;color:#f87171;cursor:pointer;padding:2px 8px;font-size:12px">✕ Remove</button>' : ''}
+        </div>
+        <div class="form-grid cols-2" style="margin-bottom:0">
+          <div class="field" style="margin-bottom:8px"><label>Chainage From (km)</label>
+            <input type="number" step="0.001" id="pc-from-${i}" value="${pc.chainage_from!==''&&pc.chainage_from!==null?pc.chainage_from:''}" placeholder="0.000" oninput="updateProjChainage(${i})"></div>
+          <div class="field" style="margin-bottom:8px"><label>Place Name From</label>
+            <input id="pc-pf-${i}" value="${pc.place_from||''}" placeholder="e.g. Pune"></div>
+          <div class="field" style="margin-bottom:8px"><label>Chainage To (km)</label>
+            <input type="number" step="0.001" id="pc-to-${i}" value="${pc.chainage_to||''}" placeholder="0.000" oninput="updateProjChainage(${i})"></div>
+          <div class="field" style="margin-bottom:8px"><label>Place Name To</label>
+            <input id="pc-pt-${i}" value="${pc.place_to||''}" placeholder="e.g. Nashik"></div>
+        </div>
+      </div>
+    `).join('');
+  }
+
   openModal(title, `
-    <div class="form-grid cols-2">
+    <div class="form-grid cols-2" style="margin-bottom:16px">
       <div class="field" style="grid-column:1/-1">
         <label class="required">Project Name</label>
-        <input id="pf-name" value="${p?.name||''}" placeholder="e.g. National Highway 48 Extension">
+        <input id="pf-name" value="${p?.name||''}" placeholder="e.g. NH 753C Widening Package-1">
       </div>
-      <div class="field"><label class="required">TAFS Job Number</label><input id="pf-tafs" value="${p?.tafsNo||''}" placeholder="e.g. TAFS/2024/001"></div>
-      <div class="field"><label>TAFS Date</label><input id="pf-tafsdate" type="date" value="${p?.tafsDate||''}" ></div>
-      <div class="field"><label>Project Length (km)</label><input id="pf-len" type="number" value="${p?.length||''}" placeholder="0.00" oninput="(function(){var l=parseFloat(document.getElementById('pf-len').value)||0;var la=parseFloat(document.getElementById('pf-latafs').value)||0;document.getElementById('pf-lavail-tafs').value=l>0||la>0?(l-la).toFixed(4):''})()"></div>
-      <div class="field"><label>TPC (₹)</label><input id="pf-tpc" type="number" value="${p?.tpc||''}" placeholder="0"></div>
-      <div class="field"><label>Civil Cost (₹)</label><input id="pf-civil" type="number" value="${p?.civilCost||''}" placeholder="0"></div>
-      <div class="field"><label>LA Cost As per TAFS (₹)</label><input id="pf-lacost" type="number" value="${p?.laCost||''}" placeholder="0"></div>
+      <div class="field"><label class="required">TAFS Job Number</label>
+        <input id="pf-tafs" value="${p?.tafsNo||''}" placeholder="e.g. TAFS/2024/001"></div>
+      <div class="field"><label>TAFS Date</label>
+        <input id="pf-tafsdate" type="date" value="${p?.tafsDate||''}"></div>
+      <div class="field"><label>NH Number</label>
+        <select id="pf-nh">
+          <option value="">— Select NH —</option>
+          ${nhState.nhList.map(n=>'<option value="'+n.id+'"'+((linkedNhId&&parseInt(linkedNhId)===n.id)?' selected':'')+'>'+n.nh_number+'</option>').join('')}
+        </select>
+      </div>
+      <div class="field"><label>Division</label>
+        ${isDivUser
+          ? '<input id="pf-division" value="'+curDiv+'" readonly style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)">'
+          : '<select id="pf-division"><option value="">— Select Division —</option>'+divisionUsers.map(d=>'<option value="'+d.name+'"'+(curDiv===d.name?' selected':'')+'>'+d.name+'</option>').join('')+'</select>'
+        }
+      </div>
+      <div class="field"><label>TPC (₹ Crore)</label><input id="pf-tpc" type="number" value="${p?.tpc||''}" placeholder="0"></div>
+      <div class="field"><label>Civil Cost (₹ Crore)</label><input id="pf-civil" type="number" value="${p?.civilCost||''}" placeholder="0"></div>
+      <div class="field"><label>LA Cost as per TAFS (₹ Crore)</label><input id="pf-lacost" type="number" value="${p?.laCost||''}" placeholder="0"></div>
       <div class="field"><label>Total Land Required (Ha)</label><input id="pf-total" type="number" value="${p?.totalLand||''}" placeholder="0.00"></div>
-      <div class="field"><label>Available Land (Ha)</label><input id="pf-avail" type="number" value="${p?.availLand||''}" placeholder="0.00"></div>
       <div class="field"><label>Land to be Acquired as per TAFS (Ha)</label><input id="pf-la" type="number" value="${p?.laRequired||''}" placeholder="0.0000"></div>
-      <div class="field"><label>Length Affected due to LA as per TAFS (km)</label><input id="pf-latafs" type="number" value="${p?.laLengthTafs||''}" placeholder="0.00" oninput="(function(){var l=parseFloat(document.getElementById('pf-len').value)||0;var la=parseFloat(document.getElementById('pf-latafs').value)||0;document.getElementById('pf-lavail-tafs').value=l>0||la>0?(l-la).toFixed(4):''})()"></div>
-      <div class="field"><label>Project Length Available as per TAFS (km) <span style="font-size:10px;color:#4ade80;font-weight:400">(auto = Project Length − Affected)</span></label><input id="pf-lavail-tafs" type="number" value="${p?.laLengthTafs&&p?.length?(parseFloat(p.length)-parseFloat(p.laLengthTafs)).toFixed(4):''}" placeholder="Auto-calculated" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)" readonly></div>
+      <div class="field"><label>Length Affected due to LA as per TAFS (km)</label>
+        <input id="pf-latafs" type="number" value="${p?.laLengthTafs||''}" placeholder="0.00"></div>
+    </div>
+
+    <!-- Chainage Segments -->
+    <div style="border-top:1px solid var(--border);padding-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-size:13px;font-weight:700;color:var(--accent)">Project Chainage Segments</span>
+        <button type="button" onclick="addProjChainage()" class="btn btn-secondary btn-sm">+ Add Segment</button>
+      </div>
+      <div id="proj-chainage-rows">${buildChainageRows()}</div>
+      <div id="proj-chainage-total" style="font-size:12px;color:var(--text-dim);margin-top:4px"></div>
     </div>
   `, [
     { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
     { label: p ? 'Update Project' : 'Create Project', cls: 'btn-primary', action: () => saveProject(id) }
   ]);
   document.querySelector('.modal').classList.add('wide');
+  updateProjChainageTotal();
 }
 
-function saveProject(id) {
+function addProjChainage() {
+  const last = window._projChainages[window._projChainages.length-1];
+  window._projChainages.push({chainage_from:'',chainage_to:'',place_from:'',place_to:''});
+  const i = window._projChainages.length-1;
+  const div = document.createElement('div');
+  div.innerHTML = `
+    <div id="pc-row-${i}" style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--card)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:12px;font-weight:600;color:var(--accent)">Chainage Segment ${i+1}</span>
+        <button type="button" onclick="removeProjChainage(${i})" style="background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.4);border-radius:4px;color:#f87171;cursor:pointer;padding:2px 8px;font-size:12px">✕ Remove</button>
+      </div>
+      <div class="form-grid cols-2" style="margin-bottom:0">
+        <div class="field" style="margin-bottom:8px"><label>Chainage From (km)</label>
+          <input type="number" step="0.001" id="pc-from-${i}" placeholder="0.000" oninput="updateProjChainage(${i})"></div>
+        <div class="field" style="margin-bottom:8px"><label>Place Name From</label>
+          <input id="pc-pf-${i}" placeholder="e.g. Pune"></div>
+        <div class="field" style="margin-bottom:8px"><label>Chainage To (km)</label>
+          <input type="number" step="0.001" id="pc-to-${i}" placeholder="0.000" oninput="updateProjChainage(${i})"></div>
+        <div class="field" style="margin-bottom:8px"><label>Place Name To</label>
+          <input id="pc-pt-${i}" placeholder="e.g. Nashik"></div>
+      </div>
+    </div>`;
+  document.getElementById('proj-chainage-rows').appendChild(div.firstElementChild);
+}
+
+function removeProjChainage(i) {
+  window._projChainages[i] = null;
+  document.getElementById('pc-row-'+i)?.remove();
+  updateProjChainageTotal();
+}
+
+function updateProjChainage(i) {
+  const f = document.getElementById('pc-from-'+i)?.value;
+  const t = document.getElementById('pc-to-'+i)?.value;
+  if (window._projChainages[i]) {
+    window._projChainages[i].chainage_from = f;
+    window._projChainages[i].chainage_to = t;
+  }
+  updateProjChainageTotal();
+}
+
+function updateProjChainageTotal() {
+  const el = document.getElementById('proj-chainage-total');
+  if (!el) return;
+  let total = 0;
+  (window._projChainages||[]).filter(Boolean).forEach((pc,i) => {
+    const f = parseFloat(document.getElementById('pc-from-'+i)?.value)||0;
+    const t = parseFloat(document.getElementById('pc-to-'+i)?.value)||0;
+    if (t > f) total += t - f;
+  });
+  el.textContent = total > 0 ? 'Total project length: ' + total.toFixed(3) + ' km' : '';
+}
+
+function openProjectFromNH(projId, nhId) {
+  showProjectModal(projId, nhId);
+}
+
+async function saveProject(id) {
   const name = document.getElementById('pf-name').value.trim();
   const tafsNo = document.getElementById('pf-tafs').value.trim();
   if (!name || !tafsNo) { showToast('Project name and TAFS number are required.', 'error'); return; }
-  const tafsDate = document.getElementById('pf-tafsdate').value;
+
+  // Collect chainage segments
+  const chainages = (window._projChainages||[]).filter(Boolean).map((pc,i) => ({
+    chainage_from: document.getElementById('pc-from-'+i)?.value || pc.chainage_from,
+    chainage_to:   document.getElementById('pc-to-'+i)?.value   || pc.chainage_to,
+    place_from:    document.getElementById('pc-pf-'+i)?.value   || pc.place_from || '',
+    place_to:      document.getElementById('pc-pt-'+i)?.value   || pc.place_to   || '',
+  })).filter(pc => pc.chainage_from !== '' && pc.chainage_to !== '');
+
+  // Validate chainages against NH
+  const nhId = document.getElementById('pf-nh')?.value || null;
+  if (nhId && chainages.length > 0) {
+    const nh = nhState.nhList.find(x=>x.id===parseInt(nhId));
+    if (nh) {
+      const nhFrom = parseFloat(nh.chainage_from)||0;
+      const nhTo = parseFloat(nh.chainage_to)||0;
+      for (const pc of chainages) {
+        const f = parseFloat(pc.chainage_from);
+        const t = parseFloat(pc.chainage_to);
+        if (f < nhFrom - 0.001 || t > nhTo + 0.001) {
+          showToast('Chainage '+f+' to '+t+' is outside NH range ('+nhFrom+' to '+nhTo+')','error'); return;
+        }
+        if (t <= f) { showToast('Chainage To must be greater than Chainage From','error'); return; }
+      }
+      // Check overlaps with other projects on same NH
+      const otherProjects = DB.projects.filter(p => p.nh_id === parseInt(nhId) && p.id !== parseInt(id||0));
+      for (const op of otherProjects) {
+        const opChainages = (nhState.projectChainages||[]).filter(pc => pc.project_id === op.id);
+        for (const opc of opChainages) {
+          const of2 = parseFloat(opc.chainage_from), ot = parseFloat(opc.chainage_to);
+          for (const pc of chainages) {
+            const f = parseFloat(pc.chainage_from), t = parseFloat(pc.chainage_to);
+            if (f < ot - 0.001 && t > of2 + 0.001) {
+              showToast('Chainage '+f+'-'+t+' overlaps with project "'+op.name+'" (Ch. '+of2+'-'+ot+')','error'); return;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Calculate total length from chainages
+  const totalLen = chainages.reduce((s,pc) => s + ((parseFloat(pc.chainage_to)||0)-(parseFloat(pc.chainage_from)||0)), 0);
+  const division = document.getElementById('pf-division')?.value || '';
+
   const data = {
-    name, tafsNo, tafsDate,
-    length: document.getElementById('pf-len').value,
+    name, tafsNo,
+    tafsDate: document.getElementById('pf-tafsdate').value,
+    length: totalLen > 0 ? totalLen.toFixed(3) : '',
     tpc: document.getElementById('pf-tpc').value,
     civilCost: document.getElementById('pf-civil').value,
     laCost: document.getElementById('pf-lacost').value,
     totalLand: document.getElementById('pf-total').value,
-    availLand: document.getElementById('pf-avail').value,
     laRequired: document.getElementById('pf-la').value,
     laLengthTafs: document.getElementById('pf-latafs').value,
+    nhId: nhId ? parseInt(nhId) : null,
+    division,
   };
-  if (id) {
-    const p = DB.projects.find(x => x.id === id);
-    Object.assign(p, data);
-    showToast('Project updated successfully.', 'success');
-  } else {
-    DB.projects.push({ id: newId(), ...data });
-    showToast('Project created successfully.', 'success');
-  }
-  saveDB(); closeModal(); renderProjects();
+
+  try {
+    let projId;
+    if (id) {
+      const p = DB.projects.find(x => x.id === id);
+      Object.assign(p, data);
+      // Save to Supabase via bulk save
+      await saveDB();
+      // Also update nh_id and division directly
+      await sbFetch('/rest/v1/lats_projects?id=eq.'+id, {method:'PATCH',
+        body:{nh_id:data.nhId, division:data.division}, headers:{'Prefer':'return=representation'}});
+      projId = id;
+      showToast('Project updated!', 'success');
+    } else {
+      DB.projects.push({ id: newId(), ...data, assignedUsers:[] });
+      await saveDB();
+      // Get the newly created project's real DB id
+      const allProj = await sbFetch('/rest/v1/lats_projects?order=id.desc&limit=1');
+      projId = allProj[0]?.id;
+      // Update nh_id and division
+      if (projId) await sbFetch('/rest/v1/lats_projects?id=eq.'+projId, {method:'PATCH',
+        body:{nh_id:data.nhId, division:data.division}, headers:{'Prefer':'return=representation'}});
+      showToast('Project created!', 'success');
+    }
+
+    // Save chainage segments
+    if (projId && chainages.length > 0) {
+      await sbFetch('/rest/v1/lats_project_chainages?project_id=eq.'+projId, {method:'DELETE'});
+      for (let i=0; i<chainages.length; i++) {
+        const pc = chainages[i];
+        await sbFetch('/rest/v1/lats_project_chainages', {method:'POST', body:{
+          project_id: projId,
+          chainage_from: pc.chainage_from !== '' ? parseFloat(pc.chainage_from) : null,
+          chainage_to:   pc.chainage_to   !== '' ? parseFloat(pc.chainage_to)   : null,
+          place_from: pc.place_from || null,
+          place_to:   pc.place_to   || null,
+          sort_order: i
+        }});
+      }
+      // Reload chainages
+      const allChainages = await sbFetch('/rest/v1/lats_project_chainages?order=project_id,sort_order');
+      nhState.projectChainages = allChainages || [];
+    }
+
+    // Reload projects
+    await loadDB();
+    closeModal();
+    // If came from NH panel, refresh it
+    if (nhState.selectedNH) renderStretchPanel(nhState.selectedNH);
+    else renderProjects();
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
 async function showAssignModal(projectId) {
@@ -4178,14 +4380,16 @@ let nhState = { nhList:[], stretches:{}, contracts:[], projectTypes:[], selected
 
 async function loadNHData() {
   try {
-    const [nhs, contracts, ptypes] = await Promise.all([
+    const [nhs, contracts, ptypes, projChainages] = await Promise.all([
       api('GET','/api/nh'),
       api('GET','/api/nh/contracts/all'),
       api('GET','/api/nh/project-types'),
+      sbFetch('/rest/v1/lats_project_chainages?order=project_id,sort_order'),
     ]);
-    nhState.nhList     = nhs;
-    nhState.contracts  = contracts;
+    nhState.nhList       = nhs;
+    nhState.contracts    = contracts;
     nhState.projectTypes = ptypes;
+    nhState.projectChainages = projChainages || [];
   } catch(e) { showToast('Failed to load NH data','error'); }
 }
 
@@ -4368,24 +4572,37 @@ function getNextChainageFrom(nhFrom, stretches) {
 function renderStretchPanel(nh) {
   const panel = document.getElementById('stretch-panel');
   const isAdmin = currentUser.role === 'admin';
-  const stretches = nhState.stretches[nh.id] || [];
+  const isDivUser = currentUser.role === 'nh_division';
   const nhFrom = (nh.chainage_from !== null && nh.chainage_from !== '') ? parseFloat(nh.chainage_from) : 0;
   const nhTo   = (nh.chainage_to !== null && nh.chainage_to !== '') ? parseFloat(nh.chainage_to) : 0;
   const nhLen  = nhTo - nhFrom;
-  const coveredKm = stretches.reduce((s,x) => s + (parseFloat(x.chainage_to)-parseFloat(x.chainage_from)), 0);
+
+  // Get projects linked to this NH
+  const nhProjects = DB.projects.filter(p => p.nh_id === nh.id);
+
+  // Coverage calculation from project chainages
+  const allChainages = (nhState.projectChainages || []).filter(pc =>
+    nhProjects.some(p => p.id === pc.project_id)
+  );
+  const coveredKm = allChainages.reduce((s,pc) => {
+    const f = parseFloat(pc.chainage_from)||0;
+    const t = parseFloat(pc.chainage_to)||0;
+    return s + (t > f ? t - f : 0);
+  }, 0);
   const pct = nhLen > 0 ? Math.min(100,(coveredKm/nhLen*100)).toFixed(1) : 0;
-  const gaps = nhLen > 0 ? getChainageGaps(nhFrom, nhTo, stretches) : [];
-  const fullyDone = gaps.length === 0 && stretches.length > 0 && nhLen > 0;
 
   panel.innerHTML = `
     <div class="panel-header">
       <div>
-        <h3>${nh.nh_number} — Stretches</h3>
-        <div style="font-size:12px;color:var(--text-dim);margin-top:2px">Ch. ${nh.chainage_from!==null&&nh.chainage_from!==undefined?nh.chainage_from:'?'} to ${nh.chainage_to||'?'} km${nh.state?' | '+nh.state:''}</div>
+        <h3>${nh.nh_number} — Projects</h3>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:2px">
+          Ch. ${nhFrom}${nh.place_from?' ('+nh.place_from+')':''} to ${nhTo}${nh.place_to?' ('+nh.place_to+')':''} km
+          ${nh.state?' | '+nh.state:''}
+        </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         ${isAdmin ? '<button class="btn btn-secondary btn-sm" id="edit-nh-btn">✎ Edit NH</button><button class="btn btn-danger btn-sm" id="del-nh-btn" style="margin-left:6px">🗑 Delete NH</button>' : ''}
-        ${!fullyDone ? '<button class="btn btn-primary btn-sm" id="add-stretch-btn">+ Add Stretch</button>' : ''}
+        <button class="btn btn-primary btn-sm" id="add-project-to-nh-btn">+ Add Project</button>
       </div>
     </div>
 
@@ -4393,61 +4610,75 @@ function renderStretchPanel(nh) {
     ${nhLen > 0 ? `<div style="padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surface)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-size:12px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Chainage Coverage</span>
-        <span style="font-size:13px;font-weight:700;color:${fullyDone?'#4ade80':'var(--accent)'}">${pct}% covered &nbsp;·&nbsp; ${coveredKm.toFixed(3)} / ${nhLen.toFixed(3)} km</span>
+        <span style="font-size:13px;font-weight:700;color:var(--accent)">${pct}% covered &nbsp;·&nbsp; ${coveredKm.toFixed(3)} / ${nhLen.toFixed(3)} km</span>
       </div>
       <div style="height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden;position:relative">
-        ${stretches.length ? (() => {
-          const sorted = [...stretches].sort((a,b)=>parseFloat(a.chainage_from)-parseFloat(b.chainage_from));
-          return sorted.map(s => {
-            const left = ((parseFloat(s.chainage_from)-nhFrom)/nhLen*100).toFixed(2);
-            const width = ((parseFloat(s.chainage_to)-parseFloat(s.chainage_from))/nhLen*100).toFixed(2);
-            return '<div style="position:absolute;top:0;left:'+left+'%;width:'+width+'%;height:100%;background:#4ade80;border-radius:2px"></div>';
-          }).join('');
-        })() : ''}
+        ${allChainages.map(pc => {
+          const left = ((parseFloat(pc.chainage_from)-nhFrom)/nhLen*100).toFixed(2);
+          const width = ((parseFloat(pc.chainage_to)-parseFloat(pc.chainage_from))/nhLen*100).toFixed(2);
+          return '<div style="position:absolute;top:0;left:'+left+'%;width:'+width+'%;height:100%;background:#4ade80;border-radius:2px"></div>';
+        }).join('')}
       </div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-top:4px">
         <span>Ch. ${nhFrom}</span><span>Ch. ${nhTo}</span>
       </div>
-      ${gaps.length > 0 ? `<div style="margin-top:10px;padding:10px 14px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.35);border-radius:8px">
-        <span style="font-size:12px;font-weight:700;color:#fbbf24">⚠ Uncovered Chainage:</span>
-        <span style="font-size:12px;color:#fbbf24;margin-left:6px">${gaps.map(g=>'Ch. '+g.from+' – '+g.to+' km ('+((g.to-g.from).toFixed(3))+' km)').join(' &nbsp;|&nbsp; ')}</span>
-      </div>` : ''}
-      ${fullyDone ? `<div style="margin-top:10px;padding:8px 14px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.35);border-radius:8px;font-size:12px;color:#4ade80;font-weight:600">✅ All chainages covered — NH is fully divided into stretches.</div>` : ''}
     </div>` : ''}
 
     <div class="panel-body" style="padding:0">
-      <table style="width:100%;border-collapse:collapse">
-        <thead><tr style="background:var(--surface)">
-          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">#</th>
-          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">Name</th>
-          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">Chainage (km)</th>
-          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">Length (km)</th>
-          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">District / Taluka</th>
-          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">Division</th>
-          <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">Project</th>
-          ${isAdmin ? '<th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">Actions</th>' : ''}
-        </tr></thead>
-        <tbody id="stretch-tbody"></tbody>
-      </table>
+      ${nhProjects.length === 0
+        ? '<div class="empty-state" style="padding:32px"><div class="icon" style="font-size:36px">📁</div><h3>No Projects Yet</h3><p>Click <strong>+ Add Project</strong> to add a project to this NH.</p></div>'
+        : '<table style="width:100%;border-collapse:collapse">' +
+          '<thead><tr style="background:var(--surface)">' +
+          '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">#</th>' +
+          '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Project Name</th>' +
+          '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Chainage(s)</th>' +
+          '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Length</th>' +
+          '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Division</th>' +
+          '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Actions</th>' +
+          '</tr></thead><tbody id="nh-project-tbody"></tbody></table>'
+      }
     </div>`;
 
-  renderStretchRows(nh);
+  // Populate project rows
+  const tbody = document.getElementById('nh-project-tbody');
+  if (tbody) {
+    nhProjects.forEach((p, i) => {
+      const pChainages = (nhState.projectChainages||[]).filter(pc => pc.project_id === p.id);
+      const totalLen = pChainages.reduce((s,pc) => s + ((parseFloat(pc.chainage_to)||0)-(parseFloat(pc.chainage_from)||0)), 0);
+      const chainageStr = pChainages.length > 0
+        ? pChainages.map(pc => 'Ch.'+pc.chainage_from+(pc.place_from?' ('+pc.place_from+')':'')+' → '+pc.chainage_to+(pc.place_to?' ('+pc.place_to+')':'')).join('<br>')
+        : '<span style="color:var(--text-dim)">No chainages</span>';
+      const tr = document.createElement('tr');
+      tr.style.cssText = 'border-top:1px solid var(--border)';
+      tr.innerHTML =
+        '<td style="padding:12px 14px;color:var(--text-dim)">'+(i+1)+'</td>'+
+        '<td style="padding:12px 14px;font-weight:600">'+p.name+'</td>'+
+        '<td style="padding:12px 14px;font-size:12px;font-family:monospace">'+chainageStr+'</td>'+
+        '<td style="padding:12px 14px;font-family:monospace">'+(totalLen > 0 ? totalLen.toFixed(3)+' km' : '—')+'</td>'+
+        '<td style="padding:12px 14px;font-size:13px">'+(p.division||'—')+'</td>'+
+        '<td style="padding:12px 14px;white-space:nowrap">'+
+        '<button class="btn btn-secondary btn-sm" onclick="openProjectFromNH('+p.id+','+nh.id+')">✎</button>'+
+        '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
   if (isAdmin) {
     document.getElementById('edit-nh-btn')?.addEventListener('click', () => openNHModal(nh.id));
-    document.getElementById('add-stretch-btn')?.addEventListener('click', () => openStretchModal(nh.id, null));
     document.getElementById('del-nh-btn')?.addEventListener('click', () => {
-      confirmModal('Delete NH <strong>'+nh.nh_number+'</strong> and all its stretches?', async () => {
+      confirmModal('Delete NH <strong>'+nh.nh_number+'</strong>?', async () => {
         await api('DELETE','/api/nh/'+nh.id);
         nhState.nhList = nhState.nhList.filter(x=>x.id!==nh.id);
-        delete nhState.stretches[nh.id];
         nhState.selectedNH = null;
         renderNHList();
-        document.getElementById('stretch-panel').innerHTML = '<div class="panel-body" style="text-align:center;padding:40px;color:var(--text-dim)"><div style="font-size:36px;margin-bottom:12px">🛣</div><p>Select an NH from the left to view its stretches.</p></div>';
+        document.getElementById('stretch-panel').innerHTML = '<div class="panel-body" style="text-align:center;padding:40px;color:var(--text-dim)"><div style="font-size:36px;margin-bottom:12px">🛣</div><p>Select an NH from the left to view its projects.</p></div>';
         showToast('NH deleted','info');
       });
     });
   }
+  document.getElementById('add-project-to-nh-btn')?.addEventListener('click', () => showProjectModal(null, nh.id));
 }
+
 
 function renderStretchRows(nh) {
   const tbody = document.getElementById('stretch-tbody');
@@ -4495,54 +4726,144 @@ function renderStretchRows(nh) {
   });
 }
 
-function openNHModal(id) {
+async function openNHModal(id) {
   const nh = id ? nhState.nhList.find(x=>x.id===id) : null;
-  openModal(nh ? 'Edit NH' : 'Add NH Number', `
-    <div class="form-grid cols-2">
-      <div class="field" style="grid-column:1/-1"><label class="required">NH Number</label><input id="nhf-num" value="${nh?.nh_number||''}" placeholder="e.g. NH753C"></div>
-      <div class="field"><label class="required">Chainage From (km)</label><input id="nhf-from" type="number" value="${nh?.chainage_from!==null&&nh?.chainage_from!==undefined?nh.chainage_from:''}" placeholder="0.000"></div>
-      <div class="field"><label>Place Name at Chainage From</label><input id="nhf-place-from" value="${nh?.place_from||''}" placeholder="e.g. Pune, Nashik"></div>
-      <div class="field"><label class="required">Chainage To (km)</label><input id="nhf-to" type="number" value="${nh?.chainage_to||''}" placeholder="100.000"></div>
-      <div class="field"><label>Place Name at Chainage To</label><input id="nhf-place-to" value="${nh?.place_to||''}" placeholder="e.g. Mumbai, Aurangabad"></div>
-      <div class="field"><label>Total Length (km)</label><input id="nhf-len" type="number" value="${nh?.length||''}" placeholder="Auto from chainages"></div>
-      <div class="field"><label>State</label><input id="nhf-state" value="${nh?.state||''}" placeholder="e.g. Maharashtra"></div>
-      <div class="field" style="grid-column:1/-1"><label>Description</label><input id="nhf-desc" value="${nh?.description||''}" placeholder="Optional description"></div>
+
+  // Load existing taluka rows for this NH
+  const existingTalukas = id ? (DB.stretchTalukas||[]).filter(t=>t.stretch_id===id) : [];
+  _stretchTalukaRows = existingTalukas.length > 0
+    ? existingTalukas.map(t=>({ district:t.district||'', taluka:t.taluka||'', chainage_from:t.chainage_from, chainage_to:t.chainage_to, length:t.length }))
+    : [];
+
+  const talukaRowsHtml = _stretchTalukaRows.map((r,i) => buildTalukaRowHtml(i, r)).join('');
+
+  openModal(nh ? 'Edit NH Number' : 'Add NH Number', `
+    <div class="form-grid cols-2" style="margin-bottom:16px">
+      <div class="field" style="grid-column:1/-1"><label class="required">NH Number</label>
+        <input id="nhf-num" value="${nh?.nh_number||''}" placeholder="e.g. NH753C"></div>
+      <div class="field"><label class="required">Chainage From (km)</label>
+        <input id="nhf-from" type="number" step="0.001" value="${nh?.chainage_from!==null&&nh?.chainage_from!==undefined?nh.chainage_from:''}" placeholder="0.000"></div>
+      <div class="field"><label>Place Name at Chainage From</label>
+        <input id="nhf-place-from" value="${nh?.place_from||''}" placeholder="e.g. Pune"></div>
+      <div class="field"><label class="required">Chainage To (km)</label>
+        <input id="nhf-to" type="number" step="0.001" value="${nh?.chainage_to||''}" placeholder="100.000"></div>
+      <div class="field"><label>Place Name at Chainage To</label>
+        <input id="nhf-place-to" value="${nh?.place_to||''}" placeholder="e.g. Mumbai"></div>
+      <div class="field"><label>Total Length (km) <span style="font-size:10px;color:#4ade80">(auto)</span></label>
+        <input id="nhf-len" type="number" readonly value="${nh?.length||''}" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)"></div>
+      <div class="field"><label>State</label>
+        <input id="nhf-state" value="${nh?.state||''}" placeholder="e.g. Maharashtra"></div>
+      <div class="field" style="grid-column:1/-1"><label>Description</label>
+        <input id="nhf-desc" value="${nh?.description||''}" placeholder="Optional description"></div>
+    </div>
+
+    <!-- District / Taluka Chainage Breakup -->
+    <div style="border-top:1px solid var(--border);padding-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <span style="font-size:13px;font-weight:700;color:var(--accent)">District / Taluka Chainage Breakup</span>
+          <span style="font-size:11px;color:var(--text-dim);margin-left:8px">Total must equal NH length</span>
+        </div>
+        <button type="button" id="add-taluka-row-btn" class="btn btn-secondary btn-sm">+ Add Row</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:560px">
+          <thead><tr style="background:var(--surface)">
+            <th style="padding:8px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase;width:28%">District</th>
+            <th style="padding:8px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase;width:24%">Taluka</th>
+            <th style="padding:8px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase;width:16%">Ch. From</th>
+            <th style="padding:8px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase;width:16%">Ch. To</th>
+            <th style="padding:8px;text-align:center;font-size:11px;color:var(--text-dim);text-transform:uppercase;width:12%">Length</th>
+            <th style="width:4%"></th>
+          </tr></thead>
+          <tbody id="taluka-rows-tbody">${talukaRowsHtml}</tbody>
+        </table>
+      </div>
+      <div id="taluka-balance" style="margin-top:10px;font-size:12px;min-height:20px"></div>
     </div>
   `, [
     { label:'Cancel', cls:'btn-secondary', action:closeModal },
     { label: nh ? 'Update NH' : 'Create NH', cls:'btn-primary', action: async () => {
       const num = document.getElementById('nhf-num').value.trim();
       const from = document.getElementById('nhf-from').value;
-      const to = document.getElementById('nhf-to').value;
-      if (!num || !from || !to) { showToast('NH Number, Chainage From and To are required','error'); return; }
-      const len = document.getElementById('nhf-len').value || (from && to ? (parseFloat(to)-parseFloat(from)).toFixed(3) : '');
-      const body = { nh_number:num, chainage_from:from, chainage_to:to, length:len,
-        state:document.getElementById('nhf-state').value, description:document.getElementById('nhf-desc').value };
+      const to   = document.getElementById('nhf-to').value;
+      if (!num) { showToast('NH Number is required','error'); return; }
+      if (from===''||to==='') { showToast('Chainage From and To are required','error'); return; }
+      const len = (parseFloat(to)-parseFloat(from)).toFixed(3);
+
+      // Taluka balance check
+      const talukaRows = _stretchTalukaRows.filter(Boolean).filter(r=>r.district||r.taluka);
+      if (talukaRows.length > 0) {
+        const nhLen2 = parseFloat(to) - parseFloat(from);
+        const totalTal = talukaRows.reduce((s,r)=>s+(parseFloat(r.length)||0),0);
+        if (Math.abs(nhLen2 - totalTal) > 0.01) {
+          showToast('Taluka total ('+totalTal.toFixed(3)+' km) must equal NH length ('+nhLen2.toFixed(3)+' km)','error'); return;
+        }
+      }
+
+      const body = { nh_number:num,
+        chainage_from: from!==''?parseFloat(from):null,
+        chainage_to: to!==''?parseFloat(to):null,
+        length:len,
+        state:document.getElementById('nhf-state').value,
+        description:document.getElementById('nhf-desc').value,
+        place_from:document.getElementById('nhf-place-from').value,
+        place_to:document.getElementById('nhf-place-to').value };
       try {
+        let nhId;
         if (nh) {
-          const r = await api('PUT','/api/nh/'+id, body);
-          const idx = nhState.nhList.findIndex(x=>x.id===id);
-          nhState.nhList[idx] = r;
-          nhState.selectedNH = r;
+          const r = await sbFetch('/rest/v1/lats_nh?id=eq.'+id, {method:'PATCH', body, headers:{'Prefer':'return=representation'}});
+          const updated = Array.isArray(r)?r[0]:r;
+          const idx2 = nhState.nhList.findIndex(x=>x.id===id);
+          nhState.nhList[idx2] = updated;
+          nhState.selectedNH = updated;
+          nhId = id;
         } else {
-          const r = await api('POST','/api/nh', body);
-          nhState.nhList.push(r);
+          const r = await sbFetch('/rest/v1/lats_nh', {method:'POST', body, headers:{'Prefer':'return=representation'}});
+          const created = Array.isArray(r)?r[0]:r;
+          nhState.nhList.push(created);
+          nhId = created.id;
+        }
+        // Save taluka rows as stretch_talukas linked to nh_id (reusing table with stretch_id = nh_id)
+        if (talukaRows.length > 0 && nhId) {
+          await sbFetch('/rest/v1/lats_stretch_talukas?stretch_id=eq.'+nhId, {method:'DELETE'});
+          for (let i=0; i<talukaRows.length; i++) {
+            const r = talukaRows[i];
+            await sbFetch('/rest/v1/lats_stretch_talukas', {method:'POST', body:{
+              stretch_id: nhId, district:r.district||null, taluka:r.taluka||null,
+              chainage_from:r.chainage_from||null, chainage_to:r.chainage_to||null,
+              length:r.length||null, sort_order:i
+            }});
+          }
+          // Reload talukas
+          const tals = await sbFetch('/rest/v1/lats_stretch_talukas?order=stretch_id,sort_order');
+          DB.stretchTalukas = tals || [];
         }
         closeModal(); renderNHList();
         if (nhState.selectedNH) renderStretchPanel(nhState.selectedNH);
-        showToast('Saved!','success');
+        showToast('NH saved!','success');
       } catch(e) { showToast('Error: '+e.message,'error'); }
     }}
   ]);
   document.querySelector('.modal').classList.add('wide');
+
+  // Attach events to existing taluka rows
+  _stretchTalukaRows.forEach((_,i) => attachTalukaRowEvents(i));
+
   // Auto-calc length
   ['nhf-from','nhf-to'].forEach(fid => {
     document.getElementById(fid)?.addEventListener('input', () => {
-      const f = parseFloat(document.getElementById('nhf-from').value)||0;
-      const t = parseFloat(document.getElementById('nhf-to').value)||0;
-      if (!isNaN(f) && !isNaN(t) && t>f) document.getElementById('nhf-len').value = (t-f).toFixed(3);
+      const f = parseFloat(document.getElementById('nhf-from').value);
+      const t = parseFloat(document.getElementById('nhf-to').value);
+      if (!isNaN(f) && !isNaN(t) && t>f) {
+        document.getElementById('nhf-len').value = (t-f).toFixed(3);
+      }
+      updateTalukaBalance();
     });
   });
+
+  document.getElementById('add-taluka-row-btn')?.addEventListener('click', addTalukaRow);
+  updateTalukaBalance();
 }
 
 // ── Taluka rows state for modal ──
@@ -4677,9 +4998,10 @@ function openStretchModal(nhId, id) {
   const otherStretches = stretches.filter(x => x.id !== id);
   const nextFrom = s ? ((s.chainage_from !== null && s.chainage_from !== '') ? parseFloat(s.chainage_from) : 0) : getNextChainageFrom(nhFrom, otherStretches);
   const gaps = getChainageGaps(nhFrom, nhTo, otherStretches);
-  const divisions = [...new Set(DB.users ? DB.users.filter(u=>u.division).map(u=>u.division) : [])];
-  const userDiv = currentUser.division || '';
-  const curDiv = s?.division || userDiv;
+  // Build divisions from NH Division users
+  const divisionUsers = (DB.users||[]).filter(u => u.role === 'nh_division');
+  const isDivisionUser = currentUser.role === 'nh_division';
+  const curDiv = s?.division || (isDivisionUser ? currentUser.name : '');
 
   // Load existing taluka rows
   const existingTalukas = id ? (DB.stretchTalukas||[]).filter(t=>t.stretch_id===id) : [];
@@ -4716,10 +5038,12 @@ function openStretchModal(nhId, id) {
       <div class="field"><label>Length (km) <span style="font-size:10px;color:#4ade80">(auto)</span></label>
         <input id="sf-len" readonly placeholder="Auto" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)"></div>
       <div class="field"><label>Division</label>
-        <select id="sf-division">
-          <option value="">— Select —</option>
-          ${divisions.map(d=>'<option value="'+d+'"'+(curDiv===d?' selected':'')+'>'+d+'</option>').join('')}
-        </select>
+        ${isDivisionUser
+          ? '<input id="sf-division" value="'+curDiv+'" readonly style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)">'
+          : '<select id="sf-division"><option value="">— Select Division —</option>' +
+            divisionUsers.map(d=>'<option value="'+d.name+'"'+(curDiv===d.name?' selected':'')+'>'+d.name+'</option>').join('') +
+            '</select>'
+        }
       </div>
       <div class="field"><label>Assign Project</label>
         <select id="sf-project">
