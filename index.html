@@ -1866,6 +1866,443 @@ function filterProjectStage(stage, btn) {
 }
 
 
+// ═══════════════════════════════════════════════════════
+// PROJECT LIFECYCLE FUNCTIONS
+// ═══════════════════════════════════════════════════════
+
+const PROJECT_STAGES = [
+  { key:'draft',         label:'Draft',            icon:'📝', color:'#94a3b8' },
+  { key:'circle_review', label:'NH Circle Review', icon:'🔵', color:'#60a5fa' },
+  { key:'admin_review',  label:'Admin Review',     icon:'⭐', color:'#f59e0b' },
+  { key:'sent_morth',    label:'Sent to MoRTH',    icon:'📤', color:'#a78bfa' },
+  { key:'approved',      label:'Approved',          icon:'✅', color:'#4ade80' },
+  { key:'active',        label:'Active',            icon:'🚀', color:'#22c55e' },
+];
+
+function getStage(key) { return PROJECT_STAGES.find(s=>s.key===key) || PROJECT_STAGES[0]; }
+
+function canEditProject(p) {
+  const role = currentUser.role;
+  const status = p.status || 'draft';
+  if (role === 'admin') return true;
+  if (role === 'nh_circle') return status === 'circle_review';
+  if (role === 'nh_division') return status === 'draft';
+  return false;
+}
+
+function canSubmitNext(p) {
+  const role = currentUser.role;
+  const status = p.status || 'draft';
+  if (role === 'nh_division' && status === 'draft') return true;
+  if (role === 'nh_circle' && status === 'circle_review') return true;
+  if (role === 'admin' && ['admin_review','sent_morth','approved'].includes(status)) return true;
+  return false;
+}
+
+function nextStatus(p) {
+  const map = { draft:'circle_review', circle_review:'admin_review', admin_review:'sent_morth', sent_morth:'approved', approved:'active' };
+  return map[p.status] || null;
+}
+
+function showProjectModal(id, nhId) {
+  const p = id ? DB.projects.find(x => x.id === id) : null;
+  const linkedNhId = nhId || p?.nhId || null;
+  if (p && !canEditProject(p)) { openProjectDetail(p); return; }
+
+  const divisionUsers = (DB.users||[]).filter(u => u.role === 'nh_division');
+  const isDivUser = currentUser.role === 'nh_division';
+  const curDiv = p?.division || (isDivUser ? currentUser.name : '');
+
+  const existingChainages = id ? (nhState.projectChainages||[]).filter(pc => pc.project_id === id) : [];
+  window._projChainages = existingChainages.length > 0
+    ? existingChainages.map(pc => ({chainage_from:pc.chainage_from,chainage_to:pc.chainage_to,place_from:pc.place_from||'',place_to:pc.place_to||''}))
+    : [{chainage_from:'',chainage_to:'',place_from:'',place_to:''}];
+
+  function chainageRowHtml(pc, i) {
+    return '<div id="pc-row-'+i+'" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:10px;background:var(--card);border-radius:6px;border:1px solid var(--border)">'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">Ch. From (km)</label>'+
+      '<input type="number" step="0.001" id="pc-from-'+i+'" value="'+(pc.chainage_from!==''&&pc.chainage_from!==null?pc.chainage_from:'')+'" placeholder="0.000" oninput="updateProjChainage('+i+')"></div>'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">Place From</label>'+
+      '<input id="pc-pf-'+i+'" value="'+(pc.place_from||'')+'" placeholder="e.g. Pune"></div>'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">Ch. To (km)</label>'+
+      '<input type="number" step="0.001" id="pc-to-'+i+'" value="'+(pc.chainage_to||'')+'" placeholder="0.000" oninput="updateProjChainage('+i+')"></div>'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">Place To</label>'+
+      '<input id="pc-pt-'+i+'" value="'+(pc.place_to||'')+'" placeholder="e.g. Nashik"></div>'+
+      (i>0?'<button type="button" onclick="removeProjChainage('+i+')" style="background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.4);border-radius:4px;color:#f87171;cursor:pointer;padding:6px 10px;align-self:end">✕</button>':'<div></div>')+
+      '</div>';
+  }
+
+  const chainageHtml = window._projChainages.map((pc,i) => chainageRowHtml(pc,i)).join('');
+
+  openModal((p?'Edit':'Create')+' Project', `
+    <div class="form-grid cols-2" style="margin-bottom:16px">
+      <div class="field" style="grid-column:1/-1">
+        <label class="required">Project Name</label>
+        <input id="pf-name" value="${p?.name||''}" placeholder="e.g. NH 753C Widening Package-1">
+      </div>
+      <div class="field"><label>NH Number</label>
+        <select id="pf-nh">
+          <option value="">— Select NH —</option>
+          ${nhState.nhList.map(n=>'<option value="'+n.id+'"'+((linkedNhId&&parseInt(linkedNhId)===n.id)?' selected':'')+'>'+n.nh_number+'</option>').join('')}
+        </select>
+      </div>
+      <div class="field"><label>Division</label>
+        ${isDivUser
+          ? '<input id="pf-division" value="'+curDiv+'" readonly style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)">'
+          : '<select id="pf-division"><option value="">— Select Division —</option>'+divisionUsers.map(d=>'<option value="'+d.name+'"'+(curDiv===d.name?' selected':'')+'>'+d.name+'</option>').join('')+'</select>'}
+      </div>
+      <div class="field"><label>Expected Project Length (km)</label>
+        <input type="number" id="pf-len" value="${p?.length||''}" placeholder="0.000"></div>
+      <div class="field"><label>Expected TPC (₹ Crore)</label>
+        <input type="number" id="pf-tpc" value="${p?.tpc||''}" placeholder="0.00"></div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:13px;font-weight:700;color:var(--accent)">📍 Chainage Segments</span>
+        <button type="button" onclick="addProjChainage()" class="btn btn-secondary btn-sm">+ Add Segment</button>
+      </div>
+      <div id="proj-chainage-rows">${chainageHtml}</div>
+      <div id="proj-chainage-total" style="font-size:12px;color:#4ade80;margin-top:4px"></div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <span style="font-size:13px;font-weight:700;color:var(--accent)">🏗 Land Acquisition</span>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="pf-la-req" ${p?.laRequired2?'checked':''} onchange="toggleLASection()" style="width:16px;height:16px;accent-color:var(--accent)">
+          LA Required?
+        </label>
+      </div>
+      <div id="la-section" style="display:${p?.laRequired2?'block':'none'}">
+        <div class="form-grid cols-2">
+          <div class="field"><label>Expected Total Area (Ha)</label>
+            <input type="number" id="pf-la-total" value="${p?.laTotalArea||''}" placeholder="0.0000" oninput="calcLAAcquire()"></div>
+          <div class="field"><label>Land Available (Ha)</label>
+            <input type="number" id="pf-la-avail" value="${p?.laAvailArea||''}" placeholder="0.0000" oninput="calcLAAcquire()"></div>
+          <div class="field"><label>Land to Acquire (Ha) <span style="font-size:10px;color:#4ade80">(auto)</span></label>
+            <input type="number" id="pf-la-acquire" value="${p?.laAcquireArea||''}" readonly style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)"></div>
+          <div class="field"><label>Length Affected due to LA (km)</label>
+            <input type="number" id="pf-la-length" value="${p?.laLengthAffected||''}" placeholder="0.000"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <span style="font-size:13px;font-weight:700;color:#22c55e">🌳 Forest & Wildlife Clearance</span>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="pf-forest-req" ${p?.forestRequired?'checked':''} onchange="toggleForestSection()" style="width:16px;height:16px;accent-color:var(--accent)">
+          Forest Clearance Required?
+        </label>
+      </div>
+      <div id="forest-section" style="display:${p?.forestRequired?'block':'none'}">
+        <div class="form-grid cols-2">
+          <div class="field"><label>Land to Acquire in Forest (Ha)</label>
+            <input type="number" id="pf-forest-area" value="${p?.forestArea||''}" placeholder="0.0000"></div>
+          <div class="field"><label>Length Affected due to Forest (km)</label>
+            <input type="number" id="pf-forest-length" value="${p?.forestLength||''}" placeholder="0.000"></div>
+        </div>
+      </div>
+    </div>
+  `, [
+    { label:'Cancel', cls:'btn-secondary', action:closeModal },
+    { label: p ? 'Update Project' : 'Create Project', cls:'btn-primary', action: () => saveProject(id) }
+  ]);
+  document.querySelector('.modal').classList.add('wide');
+  updateProjChainageTotal();
+}
+
+function toggleLASection() {
+  document.getElementById('la-section').style.display = document.getElementById('pf-la-req').checked ? 'block' : 'none';
+}
+function toggleForestSection() {
+  document.getElementById('forest-section').style.display = document.getElementById('pf-forest-req').checked ? 'block' : 'none';
+}
+function calcLAAcquire() {
+  const total = parseFloat(document.getElementById('pf-la-total')?.value)||0;
+  const avail = parseFloat(document.getElementById('pf-la-avail')?.value)||0;
+  const el = document.getElementById('pf-la-acquire');
+  if (el) el.value = total > 0 ? Math.max(0,total-avail).toFixed(4) : '';
+}
+
+function addProjChainage() {
+  if (!window._projChainages) window._projChainages = [];
+  window._projChainages.push({chainage_from:'',chainage_to:'',place_from:'',place_to:''});
+  const i = window._projChainages.length-1;
+  const div = document.createElement('div');
+  div.innerHTML = '<div id="pc-row-'+i+'" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:10px;background:var(--card);border-radius:6px;border:1px solid var(--border)">'+
+    '<div class="field" style="margin:0"><label style="font-size:11px">Ch. From (km)</label>'+
+    '<input type="number" step="0.001" id="pc-from-'+i+'" placeholder="0.000" oninput="updateProjChainage('+i+')"></div>'+
+    '<div class="field" style="margin:0"><label style="font-size:11px">Place From</label>'+
+    '<input id="pc-pf-'+i+'" placeholder="e.g. Pune"></div>'+
+    '<div class="field" style="margin:0"><label style="font-size:11px">Ch. To (km)</label>'+
+    '<input type="number" step="0.001" id="pc-to-'+i+'" placeholder="0.000" oninput="updateProjChainage('+i+')"></div>'+
+    '<div class="field" style="margin:0"><label style="font-size:11px">Place To</label>'+
+    '<input id="pc-pt-'+i+'" placeholder="e.g. Nashik"></div>'+
+    '<button type="button" onclick="removeProjChainage('+i+')" style="background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.4);border-radius:4px;color:#f87171;cursor:pointer;padding:6px 10px;align-self:end">✕</button>'+
+    '</div>';
+  document.getElementById('proj-chainage-rows').appendChild(div.firstElementChild);
+}
+
+function removeProjChainage(i) {
+  if (window._projChainages) window._projChainages[i] = null;
+  document.getElementById('pc-row-'+i)?.remove();
+  updateProjChainageTotal();
+}
+
+function updateProjChainage(i) {
+  if (!window._projChainages || !window._projChainages[i]) return;
+  window._projChainages[i].chainage_from = document.getElementById('pc-from-'+i)?.value||'';
+  window._projChainages[i].chainage_to   = document.getElementById('pc-to-'+i)?.value||'';
+  updateProjChainageTotal();
+}
+
+function updateProjChainageTotal() {
+  const el = document.getElementById('proj-chainage-total');
+  if (!el) return;
+  let total = 0;
+  (window._projChainages||[]).forEach((pc,i) => {
+    if (!pc) return;
+    const f = parseFloat(document.getElementById('pc-from-'+i)?.value)||0;
+    const t = parseFloat(document.getElementById('pc-to-'+i)?.value)||0;
+    if (t > f) total += t - f;
+  });
+  el.textContent = total > 0 ? '📏 Total: ' + total.toFixed(3) + ' km' : '';
+}
+
+async function saveProject(id) {
+  const name = document.getElementById('pf-name').value.trim();
+  if (!name) { showToast('Project name is required.','error'); return; }
+
+  const laReq     = document.getElementById('pf-la-req')?.checked||false;
+  const forestReq = document.getElementById('pf-forest-req')?.checked||false;
+
+  const chainages = (window._projChainages||[]).filter(Boolean).map((pc,i) => ({
+    chainage_from: document.getElementById('pc-from-'+i)?.value,
+    chainage_to:   document.getElementById('pc-to-'+i)?.value,
+    place_from:    document.getElementById('pc-pf-'+i)?.value||'',
+    place_to:      document.getElementById('pc-pt-'+i)?.value||'',
+  })).filter(pc => pc.chainage_from!==''&&pc.chainage_from!==undefined&&pc.chainage_to!==''&&pc.chainage_to!==undefined);
+
+  const nhId = document.getElementById('pf-nh')?.value||null;
+  const division = document.getElementById('pf-division')?.value||'';
+
+  // Validate against NH
+  if (nhId && chainages.length > 0) {
+    const nh = nhState.nhList.find(x=>x.id===parseInt(nhId));
+    if (nh) {
+      const nhFrom = parseFloat(nh.chainage_from)||0;
+      const nhTo   = parseFloat(nh.chainage_to)||0;
+      for (const pc of chainages) {
+        const f=parseFloat(pc.chainage_from), t=parseFloat(pc.chainage_to);
+        if (t<=f) { showToast('Chainage To must be greater than Chainage From','error'); return; }
+        if (f<nhFrom-0.001||t>nhTo+0.001) { showToast('Chainage '+f+'–'+t+' is outside NH range ('+nhFrom+'–'+nhTo+')','error'); return; }
+      }
+      // Overlap check with other projects on same NH
+      const others = DB.projects.filter(p=>p.nhId===parseInt(nhId)&&p.id!==parseInt(id||0));
+      for (const op of others) {
+        const opc = (nhState.projectChainages||[]).filter(pc=>pc.project_id===op.id);
+        for (const o of opc) {
+          const of2=parseFloat(o.chainage_from), ot=parseFloat(o.chainage_to);
+          for (const pc of chainages) {
+            const f=parseFloat(pc.chainage_from), t=parseFloat(pc.chainage_to);
+            if (f<ot-0.001&&t>of2+0.001) { showToast('Overlap with "'+op.name+'" (Ch.'+of2+'–'+ot+')','error'); return; }
+          }
+        }
+      }
+    }
+  }
+
+  const totalLen = chainages.reduce((s,pc)=>s+((parseFloat(pc.chainage_to)||0)-(parseFloat(pc.chainage_from)||0)),0);
+
+  const data = {
+    name,
+    length: totalLen>0?parseFloat(totalLen.toFixed(3)):(parseFloat(document.getElementById('pf-len')?.value)||null),
+    tpc: parseFloat(document.getElementById('pf-tpc')?.value)||null,
+    nh_id: nhId?parseInt(nhId):null,
+    division: division||null,
+    la_required: laReq,
+    la_total_area:      laReq?(parseFloat(document.getElementById('pf-la-total')?.value)||null):null,
+    la_avail_area:      laReq?(parseFloat(document.getElementById('pf-la-avail')?.value)||null):null,
+    la_acquire_area:    laReq?(parseFloat(document.getElementById('pf-la-acquire')?.value)||null):null,
+    la_length_affected: laReq?(parseFloat(document.getElementById('pf-la-length')?.value)||null):null,
+    forest_required: forestReq,
+    forest_area:   forestReq?(parseFloat(document.getElementById('pf-forest-area')?.value)||null):null,
+    forest_length: forestReq?(parseFloat(document.getElementById('pf-forest-length')?.value)||null):null,
+  };
+
+  try {
+    let projId;
+    if (id) {
+      await sbFetch('/rest/v1/lats_projects?id=eq.'+id, {method:'PATCH', body:data, headers:{'Prefer':'return=representation'}});
+      projId = id;
+      showToast('Project updated!','success');
+    } else {
+      data.status = 'draft';
+      data.assigned_users = [];
+      const r = await sbFetch('/rest/v1/lats_projects', {method:'POST', body:data, headers:{'Prefer':'return=representation'}});
+      const created = Array.isArray(r)?r[0]:r;
+      projId = created?.id;
+      // Log draft stage
+      if (projId) await sbFetch('/rest/v1/lats_project_stages', {method:'POST', body:{
+        project_id:projId, stage:'draft', submitted_by:currentUser.id, data:data
+      }});
+      showToast('Project created!','success');
+    }
+
+    // Save chainage segments
+    if (projId) {
+      await sbFetch('/rest/v1/lats_project_chainages?project_id=eq.'+projId, {method:'DELETE'});
+      for (let i=0; i<chainages.length; i++) {
+        const pc = chainages[i];
+        await sbFetch('/rest/v1/lats_project_chainages', {method:'POST', body:{
+          project_id:projId,
+          chainage_from:parseFloat(pc.chainage_from),
+          chainage_to:parseFloat(pc.chainage_to),
+          place_from:pc.place_from||null,
+          place_to:pc.place_to||null,
+          sort_order:i
+        }});
+      }
+    }
+
+    // Reload data
+    const d = await api('GET','/sync');
+    if (d) {
+      const mapped = mapSync(d);
+      Object.assign(DB, mapped);
+    }
+    const allChainages = await sbFetch('/rest/v1/lats_project_chainages?order=project_id,sort_order');
+    nhState.projectChainages = allChainages||[];
+
+    closeModal();
+    if (nhState.selectedNH) renderStretchPanel(nhState.selectedNH);
+    else renderProjects();
+  } catch(e) { showToast('Error: '+e.message,'error'); console.error(e); }
+}
+
+async function openProjectDetail(p) {
+  if (!p) return;
+  const chainages = (nhState.projectChainages||[]).filter(pc=>pc.project_id===p.id);
+  const stage = getStage(p.status);
+  const nh = nhState.nhList.find(x=>x.id===p.nhId);
+  const stageIdx = PROJECT_STAGES.findIndex(s=>s.key===p.status);
+  const canEdit = canEditProject(p);
+  const canNext = canSubmitNext(p);
+  const nextSt  = nextStatus(p);
+  const nextStage = nextSt?getStage(nextSt):null;
+
+  let stages = [];
+  try { stages = await sbFetch('/rest/v1/lats_project_stages?project_id=eq.'+p.id+'&order=submitted_at'); } catch(e){}
+
+  openModal('Project: '+p.name, `
+    <!-- Stage Progress Bar -->
+    <div style="display:flex;align-items:center;gap:0;margin-bottom:20px;overflow-x:auto;padding-bottom:4px">
+      ${PROJECT_STAGES.map((s,i)=>`
+        <div style="display:flex;align-items:center;flex-shrink:0">
+          <div style="text-align:center;padding:0 6px">
+            <div style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;margin:0 auto;
+              background:${i<=stageIdx?s.color:'rgba(255,255,255,0.1)'};
+              border:2px solid ${i<=stageIdx?s.color:'rgba(255,255,255,0.2)'}">
+              ${i<stageIdx?'✓':s.icon}
+            </div>
+            <div style="font-size:10px;margin-top:4px;color:${i<=stageIdx?s.color:'var(--text-dim)'};white-space:nowrap">${s.label}</div>
+          </div>
+          ${i<PROJECT_STAGES.length-1?'<div style="width:24px;height:2px;background:'+(i<stageIdx?s.color:'rgba(255,255,255,0.1)')+';flex-shrink:0"></div>':''}
+        </div>`).join('')}
+    </div>
+
+    <!-- Info Grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">NH</div>
+        <div style="font-weight:600">${nh?.nh_number||'—'}</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Division</div>
+        <div style="font-weight:600">${p.division||'—'}</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Status</div>
+        <div style="font-weight:600;color:${stage.color}">${stage.icon} ${stage.label}</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Length</div>
+        <div style="font-weight:600">${p.length||'—'} km</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Expected TPC</div>
+        <div style="font-weight:600">${p.tpc?'₹'+p.tpc+' Cr':'—'}</div>
+      </div>
+    </div>
+
+    <!-- Chainages -->
+    ${chainages.length>0?'<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📍 Chainage Segments</div>'+
+      chainages.map(pc=>'<div style="background:var(--card);border-radius:6px;padding:8px 12px;margin-bottom:4px;border:1px solid var(--border);font-family:monospace;font-size:12px">Ch. '+pc.chainage_from+(pc.place_from?' ('+pc.place_from+')':'')+' → '+pc.chainage_to+(pc.place_to?' ('+pc.place_to+')':'')+' &nbsp;·&nbsp; <strong>'+((parseFloat(pc.chainage_to)||0)-(parseFloat(pc.chainage_from)||0)).toFixed(3)+' km</strong></div>').join('')+'</div>':''}
+
+    <!-- LA Section -->
+    ${p.laRequired2?'<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:12px;margin-bottom:10px">'+
+      '<div style="font-size:12px;font-weight:700;color:#60a5fa;margin-bottom:8px">🏗 Land Acquisition</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:13px">'+
+      '<div><div style="color:var(--text-dim);font-size:11px">Total Area</div><strong>'+(p.laTotalArea||'—')+' Ha</strong></div>'+
+      '<div><div style="color:var(--text-dim);font-size:11px">Available</div><strong>'+(p.laAvailArea||'—')+' Ha</strong></div>'+
+      '<div><div style="color:var(--text-dim);font-size:11px">To Acquire</div><strong>'+(p.laAcquireArea||'—')+' Ha</strong></div>'+
+      '<div><div style="color:var(--text-dim);font-size:11px">Length Affected</div><strong>'+(p.laLengthAffected||'—')+' km</strong></div>'+
+      '</div></div>':''}
+
+    <!-- Forest Section -->
+    ${p.forestRequired?'<div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:12px;margin-bottom:10px">'+
+      '<div style="font-size:12px;font-weight:700;color:#4ade80;margin-bottom:8px">🌳 Forest & Wildlife</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">'+
+      '<div><div style="color:var(--text-dim);font-size:11px">Forest Area</div><strong>'+(p.forestArea||'—')+' Ha</strong></div>'+
+      '<div><div style="color:var(--text-dim);font-size:11px">Length Affected</div><strong>'+(p.forestLength||'—')+' km</strong></div>'+
+      '</div></div>':''}
+
+    <!-- Stage History -->
+    ${stages.length>0?'<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">'+
+      '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px">Stage History</div>'+
+      stages.map(s=>'<div style="display:flex;gap:10px;margin-bottom:6px;font-size:12px;align-items:center">'+
+        '<span style="color:var(--text-dim);white-space:nowrap">'+new Date(s.submitted_at).toLocaleDateString('en-IN')+'</span>'+
+        '<span style="background:rgba(232,160,32,0.1);border:1px solid rgba(232,160,32,0.3);border-radius:10px;padding:2px 8px;font-size:11px">'+getStage(s.stage).icon+' '+getStage(s.stage).label+'</span>'+
+        (s.remarks?'<span style="color:var(--text-dim)">'+s.remarks+'</span>':'')+'</div>').join('')+'</div>':''}
+
+    <!-- Submit Next Stage -->
+    ${canNext&&nextStage?'<div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px">'+
+      '<div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:10px">Submit to: '+nextStage.icon+' '+nextStage.label+'</div>'+
+      '<div class="field"><label>Remarks (optional)</label>'+
+      '<textarea id="stage-remarks" rows="2" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);resize:vertical" placeholder="Add remarks..."></textarea></div>'+
+      '<button class="btn btn-primary" onclick="submitProjectStage('+p.id+',&quot;'+nextSt+'&quot;)">'+nextStage.icon+' Submit to '+nextStage.label+'</button>'+
+      '</div>':''}
+  `,[
+    {label:'Close', cls:'btn-secondary', action:closeModal},
+    ...(canEdit?[{label:'✎ Edit', cls:'btn-secondary', action:()=>{closeModal();showProjectModal(p.id);}}]:[])
+  ]);
+  document.querySelector('.modal').classList.add('wide');
+}
+
+async function submitProjectStage(projId, newStatus) {
+  const remarks = document.getElementById('stage-remarks')?.value||'';
+  try {
+    await sbFetch('/rest/v1/lats_projects?id=eq.'+projId, {method:'PATCH',
+      body:{status:newStatus}, headers:{'Prefer':'return=representation'}});
+    await sbFetch('/rest/v1/lats_project_stages', {method:'POST', body:{
+      project_id:projId, stage:newStatus,
+      submitted_by:currentUser.id, remarks:remarks||null, data:{status:newStatus}
+    }});
+    const d = await api('GET','/sync');
+    if (d) Object.assign(DB, mapSync(d));
+    closeModal();
+    renderProjects();
+    showToast('Submitted to '+getStage(newStatus).label+'!','success');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+function openProjectFromNH(projId, nhId) {
+  const p = DB.projects.find(x=>x.id===projId);
+  if (p) openProjectDetail(p);
+}
+
 async function showAssignModal(projectId) {
   try { DB.users = await api('GET', '/api/auth/users'); } catch(e) {}
   const p = DB.projects.find(x => x.id === projectId);
