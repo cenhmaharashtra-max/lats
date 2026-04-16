@@ -2122,12 +2122,12 @@ async function saveProject(id) {
     tpc: parseFloat(document.getElementById('pf-tpc')?.value)||null,
     nh_id: nhId?parseInt(nhId):null,
     division: division||null,
-    la_required: laReq,
+    la_required: laReq===true||laReq==='true'?true:false,
     la_total_area:      laReq?(parseFloat(document.getElementById('pf-la-total')?.value)||null):null,
     la_avail_area:      laReq?(parseFloat(document.getElementById('pf-la-avail')?.value)||null):null,
     la_acquire_area:    laReq?(parseFloat(document.getElementById('pf-la-acquire')?.value)||null):null,
     la_length_affected: laReq?(parseFloat(document.getElementById('pf-la-length')?.value)||null):null,
-    forest_required: forestReq,
+    forest_required: forestReq===true||forestReq==='true'?true:false,
     forest_area:   forestReq?(parseFloat(document.getElementById('pf-forest-area')?.value)||null):null,
     forest_length: forestReq?(parseFloat(document.getElementById('pf-forest-length')?.value)||null):null,
   };
@@ -2140,7 +2140,7 @@ async function saveProject(id) {
       showToast('Project updated!','success');
     } else {
       data.status = 'draft';
-      data.assigned_users = [];
+      data.assigned_users = '{}';
       const r = await sbFetch('/rest/v1/lats_projects', {method:'POST', body:data, headers:{'Prefer':'return=representation'}});
       const created = Array.isArray(r)?r[0]:r;
       projId = created?.id;
