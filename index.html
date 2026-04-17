@@ -855,11 +855,12 @@ async function authCreateUser({username, password, name, role, parent_id}) {
   return r;
 }
 
-async function authUpdateUser(id, {name, password, role, parent_id}) {
+async function authUpdateUser(id, {username, name, password, role, parent_id}) {
   if (password) {
     await sbRpc('lats_set_password', {p_user_id: parseInt(id), p_password: password});
   }
   const patch = {};
+  if (username) patch.username = username;
   if (name) patch.name = name;
   if (role) patch.role = role;
   if (parent_id !== undefined) patch.parent_id = parent_id;
@@ -1062,6 +1063,10 @@ function mapSync(d) {
 async function loadDB() {
   const data = await api('GET','/api/sync');
   mapSync(data);
+  // Always ensure users are loaded for dropdowns
+  if (!DB.users || DB.users.length === 0) {
+    try { DB.users = await api('GET', '/api/auth/users'); } catch(e) {}
+  }
 }
 
 async function saveDB() {
@@ -2143,6 +2148,7 @@ async function saveProject(id) {
   }
 
   try {
+    console.log('Saving project data:', JSON.stringify(data));
     let projId;
     if (id) {
       await sbFetch('/rest/v1/lats_projects?id=eq.'+id, {method:'PATCH', body:data, headers:{'Prefer':'return=representation'}});
@@ -2488,7 +2494,7 @@ function showUserModal(id, forceRole) {
         <label class="${u?'':'required'}">Password ${u?'(leave blank to keep)':''}</label>
         <input type="password" id="uf-pass" placeholder="Enter password">
       </div>
-      <input type="hidden" id="uf-role" value="${role}">
+      <input type="hidden" id="uf-role" value="${role}" data-role="${role}">
       ${circleSelect}
     </div>
   `, [
@@ -2501,7 +2507,8 @@ async function saveUser(id, isAdminUser) {
   const username = document.getElementById('uf-user')?.value.trim();
   const fullname = document.getElementById('uf-name')?.value.trim();
   const password = document.getElementById('uf-pass').value;
-  const role = document.getElementById('uf-role')?.value || 'viewer';
+  const roleEl = document.getElementById('uf-role');
+  const role = roleEl ? (roleEl.value || roleEl.dataset.role || 'viewer') : (DB.users.find(x=>x.id===id)?.role || 'viewer');
   const parentId = document.getElementById('uf-parent')?.value || null;
 
   if (!isAdminUser && !username) { showToast('Username is required.', 'error'); return; }
@@ -2511,7 +2518,7 @@ async function saveUser(id, isAdminUser) {
 
   try {
     if (id) {
-      await api('PUT', `/api/auth/users/${id}`, { name: fullname, password: password||undefined, role, parent_id: parentId ? parseInt(parentId) : null });
+      await api('PUT', `/api/auth/users/${id}`, { username, name: fullname, password: password||undefined, role, parent_id: parentId ? parseInt(parentId) : null });
       showToast('Updated successfully.', 'success');
     } else {
       await api('POST', '/api/auth/users', { username, password, name: fullname, role, parent_id: parentId ? parseInt(parentId) : null });
