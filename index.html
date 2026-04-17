@@ -1103,7 +1103,7 @@ async function populateLoginDropdown() {
   if (!sel) return;
   try {
     errEl.textContent = 'Loading...';
-    const users = await sbFetch('/rest/v1/lats_users?select=username,role&order=username');
+    const users = await sbFetch('/rest/v1/lats_users?select=username,role&order=username&t='+Date.now());
     if (!users || !users.length) {
       errEl.textContent = 'No users found. Please run the SQL schema in Supabase first.';
       return;
@@ -2525,6 +2525,19 @@ async function saveUser(id, isAdminUser) {
       showToast('Created successfully.', 'success');
     }
     DB.users = await api('GET', '/api/auth/users');
+    // Update session if current user changed their own details
+    if (id && currentUser && currentUser.id === id) {
+      const updatedUser = DB.users.find(x => x.id === id);
+      if (updatedUser) {
+        currentUser.username = updatedUser.username;
+        currentUser.name = updatedUser.name;
+        window._currentSessionUser = currentUser;
+        sessionStorage.setItem('lats_user', JSON.stringify(currentUser));
+        // Update displayed username in header
+        const unEl = document.getElementById('current-username');
+        if (unEl) unEl.textContent = updatedUser.username;
+      }
+    }
     closeModal(); renderUsers(); populateLoginDropdown();
   } catch(e) { showToast(e.message, 'error'); }
 }
