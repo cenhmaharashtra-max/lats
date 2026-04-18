@@ -1103,7 +1103,7 @@ async function populateLoginDropdown() {
   if (!sel) return;
   try {
     errEl.textContent = 'Loading...';
-    const users = await sbFetch('/rest/v1/lats_users?select=username,role&order=username&t='+Date.now());
+    const users = await sbFetch('/rest/v1/lats_users?select=username,role&order=username');
     if (!users || !users.length) {
       errEl.textContent = 'No users found. Please run the SQL schema in Supabase first.';
       return;
