@@ -1650,8 +1650,9 @@ function renderDashboard() {
             else if (anyJM) pLatestAffected = parseFloat(anyJM.laLengthJm)||0;
             else if (any3A) pLatestAffected = parseFloat(any3A.laLength3a)||0;
             else if (p.laLengthTafs) pLatestAffected = parseFloat(p.laLengthTafs)||0;
-            const pLatestLen = pLatestAffected !== null ? projLen - pLatestAffected : projLen;
-            const pctLen = projLen > 0 ? Math.min(100, Math.round((pLatestLen / projLen) * 100)) : 0;
+            // Length progress = LA affected length / total project length
+            const pctLen = (projLen > 0 && pLatestAffected !== null && pLatestAffected > 0)
+              ? Math.min(100, Math.round((pLatestAffected / projLen) * 100)) : 0;
 
             return `<tr>
               <td><strong>${p.name}</strong></td>
