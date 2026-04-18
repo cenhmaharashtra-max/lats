@@ -2128,8 +2128,8 @@ async function saveProject(id) {
   const tpcVal = parseFloat(document.getElementById('pf-tpc')?.value)||null;
   if (tpcVal) data.tpc = tpcVal;
   if (nhId) data.nh_id = parseInt(nhId);
-  data.la_required = !!laReq;
-  data.forest_required = !!forestReq;
+  data.la_required = laReq ? true : false;
+  data.forest_required = forestReq ? true : false;
   if (laReq) {
     const laTot = parseFloat(document.getElementById('pf-la-total')?.value)||null;
     const laAv  = parseFloat(document.getElementById('pf-la-avail')?.value)||null;
@@ -2156,7 +2156,6 @@ async function saveProject(id) {
       showToast('Project updated!','success');
     } else {
       data.status = 'draft';
-      data.assigned_users = '{}';
       const r = await sbFetch('/rest/v1/lats_projects', {method:'POST', body:data, headers:{'Prefer':'return=representation'}});
       const created = Array.isArray(r)?r[0]:r;
       projId = created?.id;
