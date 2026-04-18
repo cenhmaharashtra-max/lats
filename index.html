@@ -2204,7 +2204,7 @@ async function saveProject(id) {
     nhState.projectChainages = allChainages||[];
 
     closeModal();
-    if (nhState.selectedNH) renderStretchPanel(nhState.selectedNH);
+    if (nhState.selectedNH && document.getElementById('stretch-panel')) renderStretchPanel(nhState.selectedNH);
     else renderProjects();
   } catch(e) { showToast('Error: '+e.message,'error'); console.error(e); }
 }
