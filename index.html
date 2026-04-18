@@ -2333,8 +2333,7 @@ async function openProjectDetail(p) {
         '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Stage</th>'+
         '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Outward No.</th>'+
         '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Outward Date</th>'+
-        '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Inward No.</th>'+
-        '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Inward Date</th>'+
+
         '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Remarks</th>'+
       '</tr></thead><tbody>'+
       stages.map(s=>'<tr style="border-top:1px solid var(--border)">'+
@@ -2342,8 +2341,7 @@ async function openProjectDetail(p) {
         '<td style="padding:7px 10px;white-space:nowrap"><span style="background:rgba(232,160,32,0.1);border:1px solid rgba(232,160,32,0.3);border-radius:10px;padding:2px 8px;font-size:11px">'+getStage(s.stage).icon+' '+getStage(s.stage).label+'</span></td>'+
         '<td style="padding:7px 10px;font-family:monospace;font-weight:600;color:var(--accent)">'+(s.outward_no||'—')+'</td>'+
         '<td style="padding:7px 10px;color:var(--text-dim)">'+(s.outward_date?new Date(s.outward_date).toLocaleDateString('en-IN'):'—')+'</td>'+
-        '<td style="padding:7px 10px;font-family:monospace;font-weight:600;color:#60a5fa">'+(s.inward_no?s.inward_no:'<span style="color:var(--text-dim)">Pending</span>')+'</td>'+
-        '<td style="padding:7px 10px;color:var(--text-dim)">'+(s.inward_date?new Date(s.inward_date).toLocaleDateString('en-IN'):'—')+'</td>'+
+
         '<td style="padding:7px 10px;color:var(--text-dim)">'+(s.remarks||'—')+'</td>'+
       '</tr>').join('')+
       '</tbody></table></div>':''}
@@ -2364,29 +2362,7 @@ async function openProjectDetail(p) {
       '</div>'+
       '</div>':''}
 
-    <!-- Inward Entry (for receiving office) -->
-    ${(()=>{
-      const prevStage = PROJECT_STAGES[stageIdx-1];
-      const lastStageLog = stages.filter(s=>s.stage===p.status).pop();
-      const canInward = lastStageLog && !lastStageLog.inward_no && (
-        (p.status==='circle_review' && currentUser.role==='nh_circle') ||
-        (p.status==='admin_review' && currentUser.role==='admin') ||
-        (p.status==='sent_morth' && currentUser.role==='admin') ||
-        (p.status==='approved' && currentUser.role==='admin')
-      );
-      return canInward ?
-        '<div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px">'+
-        '<div style="font-size:13px;font-weight:700;color:#60a5fa;margin-bottom:12px">📥 Inward Entry</div>'+
-        '<div class="form-grid cols-2" style="margin-bottom:12px">'+
-          '<div class="field"><label class="required">Inward Number</label>'+
-          '<input id="stage-inward-no" placeholder="e.g. CENH/2024/001" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);width:100%"></div>'+
-          '<div class="field"><label class="required">Inward Date</label>'+
-          '<input type="date" id="stage-inward-date" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);width:100%"></div>'+
-        '</div>'+
-        '<button class="btn btn-secondary" onclick="saveInwardEntry('+p.id+','+lastStageLog.id+')">📥 Save Inward Entry</button>'+
-        '</div>'
-        : '';
-    })()}
+
   `,[
     {label:'Close', cls:'btn-secondary', action:closeModal},
     ...(canEdit?[{label:'✎ Edit', cls:'btn-secondary', action:()=>{closeModal();showProjectModal(p.id);}}]:[])
@@ -2433,19 +2409,7 @@ async function submitProjectStage(projId, newStatus, isReturn=false) {
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
-async function saveInwardEntry(projId, stageLogId) {
-  const inwardNo   = document.getElementById('stage-inward-no')?.value.trim();
-  const inwardDate = document.getElementById('stage-inward-date')?.value;
-  if (!inwardNo)   { showToast('Inward Number is required','error'); return; }
-  if (!inwardDate) { showToast('Inward Date is required','error'); return; }
-  try {
-    await sbFetch('/rest/v1/lats_project_stages?id=eq.'+stageLogId, {method:'PATCH',
-      body:{inward_no:inwardNo, inward_date:inwardDate},
-      headers:{'Prefer':'return=representation'}});
-    closeModal();
-    showToast('Inward entry saved! Inward: '+inwardNo,'success');
-  } catch(e) { showToast('Error: '+e.message,'error'); }
-}
+
 
 function openProjectFromNH(projId, nhId) {
   const p = DB.projects.find(x=>x.id===projId);
