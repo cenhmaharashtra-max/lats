@@ -1878,12 +1878,15 @@ function filterProjectStage(stage, btn) {
 // ═══════════════════════════════════════════════════════
 
 const PROJECT_STAGES = [
-  { key:'draft',         label:'Draft',            icon:'📝', color:'#94a3b8' },
-  { key:'circle_review', label:'NH Circle Review', icon:'🔵', color:'#60a5fa' },
-  { key:'admin_review',  label:'Admin Review',     icon:'⭐', color:'#f59e0b' },
-  { key:'sent_morth',    label:'Sent to MoRTH',    icon:'📤', color:'#a78bfa' },
-  { key:'approved',      label:'Approved',          icon:'✅', color:'#4ade80' },
-  { key:'active',        label:'Active',            icon:'🚀', color:'#22c55e' },
+  { key:'draft',                label:'Draft',                   icon:'📝', color:'#94a3b8' },
+  { key:'returned_to_division', label:'Returned to Division',    icon:'↩️', color:'#f87171' },
+  { key:'circle_review',        label:'NH Circle Review',        icon:'🔵', color:'#60a5fa' },
+  { key:'returned_to_circle',   label:'Returned to Circle',      icon:'↩️', color:'#f87171' },
+  { key:'admin_review',         label:'Secretary (NH) Review',   icon:'⭐', color:'#f59e0b' },
+  { key:'returned_to_admin',    label:'Returned to Secretary',   icon:'↩️', color:'#f87171' },
+  { key:'sent_morth',           label:'Sent to Ministry',        icon:'📤', color:'#a78bfa' },
+  { key:'approved',             label:'Approved',                icon:'✅', color:'#4ade80' },
+  { key:'active',               label:'Active',                  icon:'🚀', color:'#22c55e' },
 ];
 
 function getStage(key) { return PROJECT_STAGES.find(s=>s.key===key) || PROJECT_STAGES[0]; }
@@ -1892,22 +1895,55 @@ function canEditProject(p) {
   const role = currentUser.role;
   const status = p.status || 'draft';
   if (role === 'admin') return true;
-  if (role === 'nh_circle') return status === 'circle_review';
-  if (role === 'nh_division') return status === 'draft';
+  if (role === 'nh_circle') return ['circle_review','returned_to_circle'].includes(status);
+  if (role === 'nh_division') return ['draft','returned_to_division'].includes(status);
   return false;
 }
 
 function canSubmitNext(p) {
   const role = currentUser.role;
   const status = p.status || 'draft';
-  if (role === 'admin') return status !== 'active'; // admin can submit at any stage
+  // Each role can only send one step forward
   if (role === 'nh_division' && status === 'draft') return true;
+  if (role === 'nh_division' && status === 'returned_to_division') return true;
   if (role === 'nh_circle' && status === 'circle_review') return true;
+  if (role === 'nh_circle' && status === 'returned_to_circle') return true;
+  if (role === 'admin' && status === 'admin_review') return true;
+  if (role === 'admin' && status === 'returned_to_admin') return true;
+  if (role === 'admin' && status === 'sent_morth') return true; // mark approved
   return false;
 }
 
+function canReturnProject(p) {
+  const role = currentUser.role;
+  const status = p.status || 'draft';
+  // Higher offices can return to one step below
+  if (role === 'nh_circle' && status === 'circle_review') return true;
+  if (role === 'admin' && status === 'admin_review') return true;
+  if (role === 'admin' && status === 'sent_morth') return true;
+  return false;
+}
+
+function returnStatus(p) {
+  const map = {
+    circle_review: 'returned_to_division',
+    admin_review:  'returned_to_circle',
+    sent_morth:    'returned_to_admin',
+  };
+  return map[p.status] || null;
+}
+
 function nextStatus(p) {
-  const map = { draft:'circle_review', circle_review:'admin_review', admin_review:'sent_morth', sent_morth:'approved', approved:'active' };
+  const map = {
+    draft:               'circle_review',
+    returned_to_division:'circle_review',
+    circle_review:       'admin_review',
+    returned_to_circle:  'admin_review',
+    admin_review:        'sent_morth',
+    returned_to_admin:   'sent_morth',
+    sent_morth:          'approved',
+    approved:            'active'
+  };
   return map[p.status] || null;
 }
 
@@ -2312,18 +2348,20 @@ async function openProjectDetail(p) {
       '</tr>').join('')+
       '</tbody></table></div>':''}
 
-    <!-- Submit Next Stage -->
-    ${canNext&&nextStage?'<div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px">'+
-      '<div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:12px">📤 Submit to: '+nextStage.icon+' '+nextStage.label+'</div>'+
+    <!-- Submit / Return Section -->
+    ${(canNext&&nextStage)||canReturnProject(p)?'<div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px">'+
       '<div class="form-grid cols-2" style="margin-bottom:12px">'+
         '<div class="field"><label class="required">Outward Number</label>'+
         '<input id="stage-outward-no" placeholder="e.g. PWD/2024/001" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);width:100%"></div>'+
         '<div class="field"><label class="required">Outward Date</label>'+
         '<input type="date" id="stage-outward-date" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);width:100%"></div>'+
-        '<div class="field" style="grid-column:1/-1"><label>Remarks</label>'+
-        '<textarea id="stage-remarks" rows="2" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);resize:vertical" placeholder="Add remarks..."></textarea></div>'+
+        '<div class="field" style="grid-column:1/-1"><label>Remarks / Observations</label>'+
+        '<textarea id="stage-remarks" rows="2" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);resize:vertical" placeholder="Add remarks or observations..."></textarea></div>'+
       '</div>'+
-      '<button class="btn btn-primary" onclick="submitProjectStage('+p.id+',&quot;'+nextSt+'&quot;)">'+nextStage.icon+' Submit to '+nextStage.label+'</button>'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+        (canNext&&nextStage?'<button class="btn btn-primary" onclick="submitProjectStage('+p.id+',&quot;'+nextSt+'&quot;)">📤 '+nextStage.icon+' Forward to '+nextStage.label+'</button>':'')+ 
+        (canReturnProject(p)?'<button class="btn btn-danger" onclick="submitProjectStage('+p.id+',&quot;'+returnStatus(p)+'&quot;,true)">↩️ Return with Observation</button>':'')+ 
+      '</div>'+
       '</div>':''}
 
     <!-- Inward Entry (for receiving office) -->
@@ -2356,13 +2394,14 @@ async function openProjectDetail(p) {
   document.querySelector('.modal').classList.add('wide');
 }
 
-async function submitProjectStage(projId, newStatus) {
+async function submitProjectStage(projId, newStatus, isReturn=false) {
   const outwardNo   = document.getElementById('stage-outward-no')?.value.trim();
   const outwardDate = document.getElementById('stage-outward-date')?.value;
   const remarks     = document.getElementById('stage-remarks')?.value||'';
 
   if (!outwardNo)   { showToast('Outward Number is required','error'); return; }
   if (!outwardDate) { showToast('Outward Date is required','error'); return; }
+  if (isReturn && !remarks) { showToast('Remarks are required when returning with observation','error'); return; }
 
   try {
     await sbFetch('/rest/v1/lats_projects?id=eq.'+projId, {method:'PATCH',
@@ -2390,7 +2429,7 @@ async function submitProjectStage(projId, newStatus) {
     }));
     closeModal();
     renderProjects();
-    showToast('Submitted to '+getStage(newStatus).label+'! Outward: '+outwardNo,'success');
+    showToast((isReturn?'Returned to':'Forwarded to ')+getStage(newStatus).label+'. Outward: '+outwardNo,'success');
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
