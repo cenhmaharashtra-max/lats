@@ -676,7 +676,7 @@ tr:hover td { background: var(--card-hover); }
       <div style="display:flex;align-items:center;">
         <button class="hamburger" onclick="toggleSidebar()">☰</button>
         <div>
-          <h1 id="page-title">Dashboard</h1>
+          <h1 id="page-title">Preconstruction Status</h1>
           <div class="breadcrumb" id="page-breadcrumb">Home</div>
         </div>
       </div>
@@ -1266,22 +1266,22 @@ function getEffectiveUser() {
 
 const adminNav = [
   { section: 'Main', items: [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'dashboard', label: 'Preconstruction Status', icon: '📊' },
     { id: 'reports', label: 'Reports', icon: '📋' },
   ]},
-  { section: 'Admin', items: [
+  { section: 'NH Management', items: [
+    { id: 'nh-management', label: 'NH Management', icon: '🛣' },
     { id: 'projects', label: 'Projects', icon: '📁' },
+    { id: 'nh-contracts', label: 'Contracts', icon: '📄' },
+    { id: 'project-types', label: 'Project Types', icon: '🗂' },
+  ]},
+  { section: 'Admin', items: [
     { id: 'users', label: 'Users', icon: '👥' },
     { id: 'villages', label: 'Village Master', icon: '🏘' },
     { id: 'view-as', label: 'View As User', icon: '👁' },
   ]},
   { section: 'LA Process', items: [
     { id: 'la-process', label: 'LA Process Entry', icon: '📝' },
-  ]},
-  { section: 'NH Management', items: [
-    { id: 'nh-management', label: 'NH Management', icon: '🛣' },
-    { id: 'nh-contracts', label: 'Contracts', icon: '📄' },
-    { id: 'project-types', label: 'Project Types', icon: '🗂' },
   ]},
   { section: 'System', items: [
     { id: 'settings', label: 'Settings', icon: '⚙️' },
@@ -1290,17 +1290,18 @@ const adminNav = [
 
 const userNav = [
   { section: 'Main', items: [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'dashboard', label: 'Preconstruction Status', icon: '📊' },
     { id: 'reports', label: 'Reports', icon: '📋' },
+  ]},
+  { section: 'NH Management', items: [
+    { id: 'nh-management', label: 'NH Management', icon: '🛣' },
+    { id: 'projects', label: 'Projects', icon: '📁' },
+    { id: 'nh-contracts', label: 'Contracts', icon: '📄' },
   ]},
   { section: 'Work', items: [
     { id: 'villages', label: 'Village Master', icon: '🏘' },
     { id: 'la-process', label: 'LA Process Entry', icon: '📝' },
   ]},
-  { section: 'NH Management', items: [
-    { id: 'nh-management', label: 'NH Management', icon: '🛣' },
-    { id: 'nh-contracts', label: 'Contracts', icon: '📄' },
-  ]}
 ];
 
 function renderSidebar() {
@@ -1346,7 +1347,7 @@ function navigate(page, params) {
   setActiveNav(page);
   
   const titles = {
-    dashboard: 'Dashboard', projects: 'Projects', users: 'User Management',
+    dashboard: 'Preconstruction Status', projects: 'Projects', users: 'User Management',
     villages: 'Village Master', 'la-process': 'LA Process Entry', reports: 'Reports',
     'nh-management': 'NH Management', 'nh-contracts': 'Contracts', 'project-types': 'Project Types',
     'settings': 'Settings'
@@ -1679,7 +1680,7 @@ function renderDashboard() {
               <td style="min-width:130px;padding:8px">
                 <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">${pctLen}%</div>
                 <div class="progress-bar"><div class="progress-fill" style="width:${pctLen}%;background:linear-gradient(90deg,#3b82f6,#60a5fa)"></div></div>
-                <div style="font-size:13px;color:var(--text-dim);margin-top:4px">${pLatestLen.toFixed(2)} / ${projLen} km</div>
+                <div style="font-size:13px;color:var(--text-dim);margin-top:4px">${(pLatestAffected||0).toFixed(2)} / ${projLen} km affected</div>
               </td>
               <td>
                 <div class="flex gap-2 flex-wrap">
@@ -4487,7 +4488,7 @@ function showToast(msg, type = 'info') {
 // ═══════════════════════════════════════════════════════
 
 const MODULES = [
-  { id:'dashboard',      label:'Dashboard',        icon:'📊', actions:['view'] },
+  { id:'dashboard',      label:'Preconstruction Status',        icon:'📊', actions:['view'] },
   { id:'reports',        label:'Reports',           icon:'📋', actions:['view'] },
   { id:'projects',       label:'Projects',          icon:'📁', actions:['view','edit','delete'] },
   { id:'villages',       label:'Village Master',    icon:'🏘', actions:['view','edit','delete'] },
