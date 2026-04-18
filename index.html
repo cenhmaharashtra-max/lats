@@ -1898,9 +1898,9 @@ function canEditProject(p) {
 function canSubmitNext(p) {
   const role = currentUser.role;
   const status = p.status || 'draft';
+  if (role === 'admin') return status !== 'active'; // admin can submit at any stage
   if (role === 'nh_division' && status === 'draft') return true;
   if (role === 'nh_circle' && status === 'circle_review') return true;
-  if (role === 'admin' && ['admin_review','sent_morth','approved'].includes(status)) return true;
   return false;
 }
 
