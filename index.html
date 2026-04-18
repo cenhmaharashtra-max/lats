@@ -2249,6 +2249,9 @@ async function saveProject(id) {
 
 async function openProjectDetail(p) {
   if (!p) return;
+  // Open modal immediately with loading state
+  openModal('Project: '+p.name, '<div style="padding:20px;text-align:center;color:var(--text-dim)">Loading...</div>', [{label:'Close',cls:'btn-secondary',action:closeModal}]);
+
   const chainages = (nhState.projectChainages||[]).filter(pc=>pc.project_id===p.id);
   const stage = getStage(p.status);
   const nh = nhState.nhList.find(x=>x.id===p.nhId);
@@ -2261,7 +2264,7 @@ async function openProjectDetail(p) {
   let stages = [];
   try { stages = await sbFetch('/rest/v1/lats_project_stages?project_id=eq.'+p.id+'&order=submitted_at'); } catch(e){}
 
-  openModal('Project: '+p.name, `
+  document.getElementById('modal-body').innerHTML = `
     <!-- Stage Progress Bar -->
     <div style="display:flex;align-items:center;gap:0;margin-bottom:20px;overflow-x:auto;padding-bottom:4px">
       ${PROJECT_STAGES.map((s,i)=>`
@@ -2363,10 +2366,22 @@ async function openProjectDetail(p) {
       '</div>':''}
 
 
-  `,[
-    {label:'Close', cls:'btn-secondary', action:closeModal},
-    ...(canEdit?[{label:'✎ Edit', cls:'btn-secondary', action:()=>{closeModal();showProjectModal(p.id);}}]:[])
-  ]);
+  `;
+  // Update footer buttons
+  const footer = document.getElementById('modal-footer');
+  footer.innerHTML = '';
+  const btnClose = document.createElement('button');
+  btnClose.className = 'btn btn-secondary';
+  btnClose.textContent = 'Close';
+  btnClose.onclick = closeModal;
+  footer.appendChild(btnClose);
+  if (canEdit) {
+    const btnEdit = document.createElement('button');
+    btnEdit.className = 'btn btn-secondary';
+    btnEdit.textContent = '✎ Edit';
+    btnEdit.onclick = ()=>{ closeModal(); showProjectModal(p.id); };
+    footer.appendChild(btnEdit);
+  }
   document.querySelector('.modal').classList.add('wide');
 }
 
