@@ -906,7 +906,7 @@ async function syncAll() {
   const uid = window._currentSessionUser?.id;
   const isAdmin = window._currentSessionUser?.role === 'admin';
   const [proj,vils,p3a,p3ag,pjm,pjmg,p3d,p3dg,p3g,p3gg,stTal,perms,projChainages] = await Promise.all([
-    sbFetch('/rest/v1/lats_projects?order=id'),
+    sbFetch('/rest/v1/lats_projects?select=*&order=id'),
     sbFetch('/rest/v1/lats_villages?order=id'),
     sbFetch('/rest/v1/lats_p3a?order=id'),
     sbFetch('/rest/v1/lats_p3a_guts?order=id'),
@@ -2182,13 +2182,25 @@ async function saveProject(id) {
       }
     }
 
-    // Reload data
-    const d = await api('GET','/sync');
-    if (d) {
-      const mapped = mapSync(d);
-      Object.assign(DB, mapped);
-    }
-    const allChainages = await sbFetch('/rest/v1/lats_project_chainages?order=project_id,sort_order');
+    // Reload all data fresh
+    const [freshProjects, allChainages] = await Promise.all([
+      sbFetch('/rest/v1/lats_projects?select=*&order=id'),
+      sbFetch('/rest/v1/lats_project_chainages?order=project_id,sort_order')
+    ]);
+    // Map fresh projects into DB
+    DB.projects = (freshProjects||[]).map(p=>({
+      id:p.id, name:p.name, tafsNo:p.tafs_no, tafsDate:p.tafs_date||'', length:p.length, tpc:p.tpc,
+      civilCost:p.civil_cost, laCost:p.la_cost, totalLand:p.total_land,
+      availLand:p.avail_land, laRequired:p.la_required, laLength:p.la_length,
+      laLengthTafs:p.la_length_tafs, approvalDate:p.approval_date,
+      assignedUsers:p.assigned_users||[], nhId:p.nh_id||null, division:p.division||'',
+      status:p.status||'draft', circleId:p.circle_id||null,
+      laRequired2:p.la_required||false, laTotalArea:p.la_total_area||'',
+      laAvailArea:p.la_avail_area||'', laAcquireArea:p.la_acquire_area||'',
+      laLengthAffected:p.la_length_affected||'',
+      forestRequired:p.forest_required||false, forestArea:p.forest_area||'',
+      forestLength:p.forest_length||''
+    }));
     nhState.projectChainages = allChainages||[];
 
     closeModal();
