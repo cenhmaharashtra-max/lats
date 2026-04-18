@@ -1010,7 +1010,7 @@ function mapSync(d) {
     availLand:p.avail_land, laRequired:p.la_required, laLength:p.la_length,
     laLengthTafs:p.la_length_tafs,
     approvalDate:p.approval_date, assignedUsers:p.assigned_users||[],
-    nhId:p.nh_id||null, division:p.division||'',
+    nhId:p.nh_id?parseInt(p.nh_id):null, division:p.division||'',
     status:p.status||'draft', circleId:p.circle_id||null,
     laRequired2:p.la_required||false, laTotalArea:p.la_total_area||'',
     laAvailArea:p.la_avail_area||'', laAcquireArea:p.la_acquire_area||'',
@@ -2105,7 +2105,7 @@ async function saveProject(id) {
         if (f<nhFrom-0.001||t>nhTo+0.001) { showToast('Chainage '+f+'–'+t+' is outside NH range ('+nhFrom+'–'+nhTo+')','error'); return; }
       }
       // Overlap check with other projects on same NH
-      const others = DB.projects.filter(p=>p.nhId===parseInt(nhId)&&p.id!==parseInt(id||0));
+      const others = DB.projects.filter(p=>(parseInt(p.nhId)||parseInt(p.nh_id))===parseInt(nhId)&&p.id!==parseInt(id||0));
       for (const op of others) {
         const opc = (nhState.projectChainages||[]).filter(pc=>pc.project_id===op.id);
         for (const o of opc) {
@@ -4839,7 +4839,7 @@ function renderStretchPanel(nh) {
   const nhLen  = nhTo - nhFrom;
 
   // Get projects linked to this NH
-  const nhProjects = DB.projects.filter(p => p.nh_id === nh.id);
+  const nhProjects = DB.projects.filter(p => parseInt(p.nhId)||parseInt(p.nh_id) ? (parseInt(p.nhId)||parseInt(p.nh_id)) === nh.id : false);
 
   // Coverage calculation from project chainages
   const allChainages = (nhState.projectChainages || []).filter(pc =>
