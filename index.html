@@ -1110,16 +1110,16 @@ async function populateLoginDropdown() {
     }
     errEl.textContent = '';
     sel.innerHTML = '<option value="">— Select Username —</option>';
-    const admin = users.find(u => u.username === 'CENH');
-    if (admin) {
+    // Show all users sorted: admin first, then others
+    const admins = users.filter(u => u.role === 'admin');
+    const others = users.filter(u => u.role !== 'admin').sort((a,b)=>a.username.localeCompare(b.username));
+    admins.forEach(u => {
       const o = document.createElement('option');
-      o.value = admin.username;
-      o.textContent = admin.username + ' (Admin)';
+      o.value = u.username;
+      o.textContent = u.username + ' (Admin)';
       sel.appendChild(o);
-    }
-    users.filter(u => u.role !== 'admin')
-      .sort((a,b) => a.username.localeCompare(b.username))
-      .forEach(u => {
+    });
+    others.forEach(u => {
         const o = document.createElement('option');
         o.value = u.username;
         o.textContent = u.username;
