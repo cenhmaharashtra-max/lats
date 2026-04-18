@@ -2288,19 +2288,65 @@ async function openProjectDetail(p) {
 
     <!-- Stage History -->
     ${stages.length>0?'<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">'+
-      '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px">Stage History</div>'+
-      stages.map(s=>'<div style="display:flex;gap:10px;margin-bottom:6px;font-size:12px;align-items:center">'+
-        '<span style="color:var(--text-dim);white-space:nowrap">'+new Date(s.submitted_at).toLocaleDateString('en-IN')+'</span>'+
-        '<span style="background:rgba(232,160,32,0.1);border:1px solid rgba(232,160,32,0.3);border-radius:10px;padding:2px 8px;font-size:11px">'+getStage(s.stage).icon+' '+getStage(s.stage).label+'</span>'+
-        (s.remarks?'<span style="color:var(--text-dim)">'+s.remarks+'</span>':'')+'</div>').join('')+'</div>':''}
+      '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px">📋 File Tracking History</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr style="background:var(--surface)">'+
+        '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Date</th>'+
+        '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Stage</th>'+
+        '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Outward No.</th>'+
+        '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Outward Date</th>'+
+        '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Inward No.</th>'+
+        '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Inward Date</th>'+
+        '<th style="padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600">Remarks</th>'+
+      '</tr></thead><tbody>'+
+      stages.map(s=>'<tr style="border-top:1px solid var(--border)">'+
+        '<td style="padding:7px 10px;color:var(--text-dim);white-space:nowrap">'+new Date(s.submitted_at).toLocaleDateString('en-IN')+'</td>'+
+        '<td style="padding:7px 10px;white-space:nowrap"><span style="background:rgba(232,160,32,0.1);border:1px solid rgba(232,160,32,0.3);border-radius:10px;padding:2px 8px;font-size:11px">'+getStage(s.stage).icon+' '+getStage(s.stage).label+'</span></td>'+
+        '<td style="padding:7px 10px;font-family:monospace;font-weight:600;color:var(--accent)">'+(s.outward_no||'—')+'</td>'+
+        '<td style="padding:7px 10px;color:var(--text-dim)">'+(s.outward_date?new Date(s.outward_date).toLocaleDateString('en-IN'):'—')+'</td>'+
+        '<td style="padding:7px 10px;font-family:monospace;font-weight:600;color:#60a5fa">'+(s.inward_no?s.inward_no:'<span style="color:var(--text-dim)">Pending</span>')+'</td>'+
+        '<td style="padding:7px 10px;color:var(--text-dim)">'+(s.inward_date?new Date(s.inward_date).toLocaleDateString('en-IN'):'—')+'</td>'+
+        '<td style="padding:7px 10px;color:var(--text-dim)">'+(s.remarks||'—')+'</td>'+
+      '</tr>').join('')+
+      '</tbody></table></div>':''}
 
     <!-- Submit Next Stage -->
     ${canNext&&nextStage?'<div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px">'+
-      '<div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:10px">Submit to: '+nextStage.icon+' '+nextStage.label+'</div>'+
-      '<div class="field"><label>Remarks (optional)</label>'+
-      '<textarea id="stage-remarks" rows="2" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);resize:vertical" placeholder="Add remarks..."></textarea></div>'+
+      '<div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:12px">📤 Submit to: '+nextStage.icon+' '+nextStage.label+'</div>'+
+      '<div class="form-grid cols-2" style="margin-bottom:12px">'+
+        '<div class="field"><label class="required">Outward Number</label>'+
+        '<input id="stage-outward-no" placeholder="e.g. PWD/2024/001" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);width:100%"></div>'+
+        '<div class="field"><label class="required">Outward Date</label>'+
+        '<input type="date" id="stage-outward-date" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);width:100%"></div>'+
+        '<div class="field" style="grid-column:1/-1"><label>Remarks</label>'+
+        '<textarea id="stage-remarks" rows="2" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);resize:vertical" placeholder="Add remarks..."></textarea></div>'+
+      '</div>'+
       '<button class="btn btn-primary" onclick="submitProjectStage('+p.id+',&quot;'+nextSt+'&quot;)">'+nextStage.icon+' Submit to '+nextStage.label+'</button>'+
       '</div>':''}
+
+    <!-- Inward Entry (for receiving office) -->
+    ${(()=>{
+      const prevStage = PROJECT_STAGES[stageIdx-1];
+      const lastStageLog = stages.filter(s=>s.stage===p.status).pop();
+      const canInward = lastStageLog && !lastStageLog.inward_no && (
+        (p.status==='circle_review' && currentUser.role==='nh_circle') ||
+        (p.status==='admin_review' && currentUser.role==='admin') ||
+        (p.status==='sent_morth' && currentUser.role==='admin') ||
+        (p.status==='approved' && currentUser.role==='admin')
+      );
+      return canInward ?
+        '<div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px">'+
+        '<div style="font-size:13px;font-weight:700;color:#60a5fa;margin-bottom:12px">📥 Inward Entry</div>'+
+        '<div class="form-grid cols-2" style="margin-bottom:12px">'+
+          '<div class="field"><label class="required">Inward Number</label>'+
+          '<input id="stage-inward-no" placeholder="e.g. CENH/2024/001" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);width:100%"></div>'+
+          '<div class="field"><label class="required">Inward Date</label>'+
+          '<input type="date" id="stage-inward-date" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);width:100%"></div>'+
+        '</div>'+
+        '<button class="btn btn-secondary" onclick="saveInwardEntry('+p.id+','+lastStageLog.id+')">📥 Save Inward Entry</button>'+
+        '</div>'
+        : '';
+    })()}
   `,[
     {label:'Close', cls:'btn-secondary', action:closeModal},
     ...(canEdit?[{label:'✎ Edit', cls:'btn-secondary', action:()=>{closeModal();showProjectModal(p.id);}}]:[])
@@ -2309,19 +2355,54 @@ async function openProjectDetail(p) {
 }
 
 async function submitProjectStage(projId, newStatus) {
-  const remarks = document.getElementById('stage-remarks')?.value||'';
+  const outwardNo   = document.getElementById('stage-outward-no')?.value.trim();
+  const outwardDate = document.getElementById('stage-outward-date')?.value;
+  const remarks     = document.getElementById('stage-remarks')?.value||'';
+
+  if (!outwardNo)   { showToast('Outward Number is required','error'); return; }
+  if (!outwardDate) { showToast('Outward Date is required','error'); return; }
+
   try {
     await sbFetch('/rest/v1/lats_projects?id=eq.'+projId, {method:'PATCH',
       body:{status:newStatus}, headers:{'Prefer':'return=representation'}});
     await sbFetch('/rest/v1/lats_project_stages', {method:'POST', body:{
       project_id:projId, stage:newStatus,
-      submitted_by:currentUser.id, remarks:remarks||null, data:{status:newStatus}
+      submitted_by:currentUser.id, remarks:remarks||null,
+      outward_no:outwardNo, outward_date:outwardDate,
+      data:{status:newStatus, outward_no:outwardNo, outward_date:outwardDate}
     }});
-    const d = await api('GET','/sync');
-    if (d) Object.assign(DB, mapSync(d));
+    // Reload projects
+    const freshProjects = await sbFetch('/rest/v1/lats_projects?select=*&order=id');
+    DB.projects = (freshProjects||[]).map(p=>({
+      id:p.id, name:p.name, tafsNo:p.tafs_no, tafsDate:p.tafs_date||'', length:p.length, tpc:p.tpc,
+      civilCost:p.civil_cost, laCost:p.la_cost, totalLand:p.total_land,
+      availLand:p.avail_land, laRequired:p.la_required, laLength:p.la_length,
+      laLengthTafs:p.la_length_tafs, approvalDate:p.approval_date,
+      assignedUsers:p.assigned_users||[], nhId:p.nh_id?parseInt(p.nh_id):null,
+      division:p.division||'', status:p.status||'draft',
+      laRequired2:p.la_required||false, laTotalArea:p.la_total_area||'',
+      laAvailArea:p.la_avail_area||'', laAcquireArea:p.la_acquire_area||'',
+      laLengthAffected:p.la_length_affected||'',
+      forestRequired:p.forest_required||false, forestArea:p.forest_area||'',
+      forestLength:p.forest_length||''
+    }));
     closeModal();
     renderProjects();
-    showToast('Submitted to '+getStage(newStatus).label+'!','success');
+    showToast('Submitted to '+getStage(newStatus).label+'! Outward: '+outwardNo,'success');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+async function saveInwardEntry(projId, stageLogId) {
+  const inwardNo   = document.getElementById('stage-inward-no')?.value.trim();
+  const inwardDate = document.getElementById('stage-inward-date')?.value;
+  if (!inwardNo)   { showToast('Inward Number is required','error'); return; }
+  if (!inwardDate) { showToast('Inward Date is required','error'); return; }
+  try {
+    await sbFetch('/rest/v1/lats_project_stages?id=eq.'+stageLogId, {method:'PATCH',
+      body:{inward_no:inwardNo, inward_date:inwardDate},
+      headers:{'Prefer':'return=representation'}});
+    closeModal();
+    showToast('Inward entry saved! Inward: '+inwardNo,'success');
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
