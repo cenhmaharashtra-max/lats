@@ -1267,13 +1267,15 @@ function getEffectiveUser() {
 const adminNav = [
   { section: 'Main', items: [
     { id: 'dashboard', label: 'Preconstruction Status', icon: '📊' },
-    { id: 'reports', label: 'Reports', icon: '📋' },
+  ]},
+  { section: 'Programme', items: [
+    { id: 'programme', label: 'Programme Management', icon: '📋' },
+    { id: 'estimates', label: 'Estimates', icon: '📝' },
+    { id: 'contracts', label: 'Contracts & Progress', icon: '🏗' },
   ]},
   { section: 'NH Management', items: [
     { id: 'nh-management', label: 'NH Management', icon: '🛣' },
-    { id: 'projects', label: 'Projects', icon: '📁' },
-    { id: 'nh-contracts', label: 'Contracts', icon: '📄' },
-    { id: 'project-types', label: 'Project Types', icon: '🗂' },
+    { id: 'scope-items', label: 'Scope Items', icon: '🗂' },
   ]},
   { section: 'Admin', items: [
     { id: 'users', label: 'Users', icon: '👥' },
@@ -1291,12 +1293,14 @@ const adminNav = [
 const userNav = [
   { section: 'Main', items: [
     { id: 'dashboard', label: 'Preconstruction Status', icon: '📊' },
-    { id: 'reports', label: 'Reports', icon: '📋' },
+  ]},
+  { section: 'Programme', items: [
+    { id: 'programme', label: 'Programme', icon: '📋' },
+    { id: 'estimates', label: 'Estimates', icon: '📝' },
+    { id: 'contracts', label: 'Contracts & Progress', icon: '🏗' },
   ]},
   { section: 'NH Management', items: [
     { id: 'nh-management', label: 'NH Management', icon: '🛣' },
-    { id: 'projects', label: 'Projects', icon: '📁' },
-    { id: 'nh-contracts', label: 'Contracts', icon: '📄' },
   ]},
   { section: 'Work', items: [
     { id: 'villages', label: 'Village Master', icon: '🏘' },
@@ -1347,10 +1351,11 @@ function navigate(page, params) {
   setActiveNav(page);
   
   const titles = {
-    dashboard: 'Preconstruction Status', projects: 'Projects', users: 'User Management',
+    dashboard: 'Preconstruction Status', users: 'User Management',
     villages: 'Village Master', 'la-process': 'LA Process Entry', reports: 'Reports',
-    'nh-management': 'NH Management', 'nh-contracts': 'Contracts', 'project-types': 'Project Types',
-    'settings': 'Settings'
+    'nh-management': 'NH Management', 'scope-items': 'Scope Items',
+    'programme': 'Programme Management', 'estimates': 'Estimates',
+    'contracts': 'Contracts & Work Progress', 'settings': 'Settings'
   };
   document.getElementById('page-title').textContent = titles[page] || page;
   document.getElementById('page-breadcrumb').textContent = 'Home / ' + (titles[page] || page);
@@ -1359,7 +1364,10 @@ function navigate(page, params) {
   content.innerHTML = '';
   
   if (page === 'dashboard') renderDashboard();
-  else if (page === 'projects') renderProjects();
+  else if (page === 'programme') renderProgramme();
+  else if (page === 'estimates') renderEstimates();
+  else if (page === 'contracts') renderContractsProgress();
+  else if (page === 'scope-items') renderScopeItems();
   else if (page === 'users') renderUsers();
   else if (page === 'villages') renderVillages();
   else if (page === 'la-process') renderLAProcess(params);
@@ -1459,6 +1467,1214 @@ function renderVillageWiseTable(villages, projects, filterProjectId) {
     }).join('')}</tbody>
   </table></div>`;
 }
+
+// ═══════════════════════════════════════════════════════
+// PROGRAMME MODULE — Financial Year / Head / Project List
+// ═══════════════════════════════════════════════════════
+
+// State
+const progState = {
+  fys: [], heads: [], projects: [], estimates: [],
+  scopeItems: [], contracts: [], progress: [],
+  selectedFY: null, selectedHead: null
+};
+
+async function loadProgrammeData() {
+  try {
+    const [fys, heads, projects, estimates, scopeItems, contracts] = await Promise.all([
+      sbFetch('/rest/v1/lats_fy?order=fy.desc'),
+      sbFetch('/rest/v1/lats_prog_heads?order=sort_order,id'),
+      sbFetch('/rest/v1/lats_prog_projects?order=id'),
+      sbFetch('/rest/v1/lats_estimates?order=id'),
+      sbFetch('/rest/v1/lats_scope_items?order=sort_order,name'),
+      sbFetch('/rest/v1/lats_contracts2?order=id'),
+    ]);
+    progState.fys       = fys||[];
+    progState.heads     = heads||[];
+    progState.projects  = projects||[];
+    progState.estimates = estimates||[];
+    progState.scopeItems = scopeItems||[];
+    progState.contracts = contracts||[];
+    if (!progState.selectedFY && progState.fys.length > 0) {
+      progState.selectedFY = progState.fys[0];
+    }
+  } catch(e) { showToast('Failed to load programme data: '+e.message,'error'); }
+}
+
+// ── Programme Management (Admin) ──
+async function renderProgramme() {
+  const c = document.getElementById('page-content');
+  c.innerHTML = '<div style="padding:20px;color:var(--text-dim)">Loading...</div>';
+  await loadProgrammeData();
+
+  const isAdmin = currentUser.role === 'admin';
+  const fyList = progState.fys;
+  const selFY = progState.selectedFY;
+  const heads = selFY ? progState.heads.filter(h => h.fy_id === selFY.id) : [];
+
+  c.innerHTML = `
+    <div style="display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start">
+
+      <!-- Left: FY List -->
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Financial Years</h3>
+          ${isAdmin ? '<button class="btn btn-primary btn-sm" id="add-fy-btn">+ Add FY</button>' : ''}
+        </div>
+        <div id="fy-list" style="padding:0">
+          ${fyList.length === 0
+            ? '<div style="padding:16px;color:var(--text-dim);font-size:13px">No FY added yet.</div>'
+            : fyList.map(fy => `
+              <div class="fy-item" data-fyid="${fy.id}" style="padding:12px 16px;cursor:pointer;border-left:3px solid ${selFY&&selFY.id===fy.id?'var(--accent)':'transparent'};background:${selFY&&selFY.id===fy.id?'rgba(232,160,32,0.07)':'transparent'};display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <div style="font-weight:700;color:${selFY&&selFY.id===fy.id?'var(--accent)':'var(--text)'}">${fy.fy}</div>
+                  <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${progState.heads.filter(h=>h.fy_id===fy.id).length} heads</div>
+                </div>
+                <div style="display:flex;gap:4px">
+                  ${fy.is_active ? '<span style="font-size:10px;background:rgba(74,222,128,0.15);color:#4ade80;border-radius:10px;padding:2px 7px;border:1px solid rgba(74,222,128,0.3)">Active</span>' : ''}
+                  ${isAdmin ? '<button class="btn btn-danger btn-sm" onclick="deleteFY('+fy.id+')" style="padding:2px 6px;font-size:11px">🗑</button>' : ''}
+                </div>
+              </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Right: Heads + Projects -->
+      <div id="prog-right-panel">
+        ${selFY ? renderProgHeadsPanel(selFY, heads) : '<div class="panel"><div class="panel-body" style="text-align:center;padding:40px;color:var(--text-dim)">Select a Financial Year</div></div>'}
+      </div>
+    </div>`;
+
+  // FY click
+  document.querySelectorAll('.fy-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const fyId = parseInt(el.dataset.fyid);
+      progState.selectedFY = progState.fys.find(f=>f.id===fyId);
+      renderProgramme();
+    });
+  });
+
+  if (isAdmin) {
+    document.getElementById('add-fy-btn')?.addEventListener('click', openFYModal);
+    document.getElementById('add-head-btn')?.addEventListener('click', ()=>openHeadModal(progState.selectedFY?.id));
+  }
+}
+
+function renderProgHeadsPanel(fy, heads) {
+  const isAdmin = currentUser.role === 'admin';
+  return `<div class="panel">
+    <div class="panel-header">
+      <h3>${fy.fy} — Programme Heads</h3>
+      ${isAdmin ? '<button class="btn btn-primary btn-sm" id="add-head-btn">+ Add Head</button>' : ''}
+    </div>
+    <div class="panel-body" style="padding:0">
+      ${heads.length === 0
+        ? '<div class="empty-state" style="padding:32px"><div class="icon">📋</div><p>No heads added yet. Click + Add Head to start.</p></div>'
+        : heads.map(h => {
+            const hProjects = progState.projects.filter(p=>p.head_id===h.id);
+            const divUsers = (DB.users||[]).filter(u=>u.role==='nh_division');
+            return `<div style="border-bottom:1px solid var(--border)">
+              <div style="padding:12px 18px;display:flex;justify-content:space-between;align-items:center;background:var(--surface)">
+                <div>
+                  <span style="font-weight:700;font-size:14px">${h.name}</span>
+                  <span style="font-size:12px;color:var(--text-dim);margin-left:10px">${hProjects.length} projects</span>
+                </div>
+                ${isAdmin ? `<div style="display:flex;gap:6px">
+                  <button class="btn btn-primary btn-sm" onclick="openProgProjectModal(null,${h.id})">+ Add Project</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteHead(${h.id})">🗑</button>
+                </div>` : ''}
+              </div>
+              ${hProjects.length > 0 ? `<table style="width:100%;border-collapse:collapse">
+                <thead><tr style="background:rgba(0,0,0,0.1)">
+                  <th style="padding:8px 14px;font-size:11px;color:var(--text-dim);text-align:left">#</th>
+                  <th style="padding:8px 14px;font-size:11px;color:var(--text-dim);text-align:left">Project Name</th>
+                  <th style="padding:8px 14px;font-size:11px;color:var(--text-dim);text-align:left">Division</th>
+                  <th style="padding:8px 14px;font-size:11px;color:var(--text-dim);text-align:left">Est. Cost</th>
+                  <th style="padding:8px 14px;font-size:11px;color:var(--text-dim);text-align:left">Status</th>
+                  ${isAdmin ? '<th style="padding:8px 14px;font-size:11px;color:var(--text-dim);text-align:left">Actions</th>' : ''}
+                </tr></thead>
+                <tbody>
+                  ${hProjects.map((p,i) => {
+                    const div = divUsers.find(u=>u.id===p.division_id);
+                    const est = progState.estimates.find(e=>e.prog_project_id===p.id);
+                    const estStage = est ? getStage(est.status) : null;
+                    return `<tr style="border-top:1px solid var(--border)">
+                      <td style="padding:10px 14px;color:var(--text-dim)">${i+1}</td>
+                      <td style="padding:10px 14px"><strong>${p.name}</strong>${p.description?'<div style="font-size:11px;color:var(--text-dim)">'+p.description+'</div>':''}</td>
+                      <td style="padding:10px 14px;font-size:13px">${div?div.name:'<span style="color:#f87171">Unassigned</span>'}</td>
+                      <td style="padding:10px 14px;font-family:monospace">${p.expected_cost?'₹'+parseFloat(p.expected_cost).toLocaleString('en-IN'):'—'}</td>
+                      <td style="padding:10px 14px">${estStage?'<span style="background:'+estStage.color+'22;color:'+estStage.color+';border:1px solid '+estStage.color+'44;border-radius:10px;padding:2px 8px;font-size:11px">'+estStage.icon+' '+estStage.label+'</span>':'<span style="color:var(--text-dim);font-size:12px">No estimate</span>'}</td>
+                      ${isAdmin ? `<td style="padding:10px 14px;white-space:nowrap">
+                        <button class="btn btn-secondary btn-sm" onclick="openProgProjectModal(${p.id},${h.id})">✎</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteProgProject(${p.id})" style="margin-left:4px">🗑</button>
+                      </td>` : ''}
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>` : ''}
+            </div>`;
+          }).join('')}
+    </div>
+  </div>`;
+}
+
+// ── FY Modal ──
+function openFYModal() {
+  openModal('Add Financial Year', `
+    <div class="form-grid cols-2">
+      <div class="field"><label class="required">Financial Year</label>
+        <input id="fy-input" placeholder="e.g. 2026-27" style="width:100%"></div>
+      <div class="field"><label>Status</label>
+        <select id="fy-active">
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+    </div>`, [
+    {label:'Cancel',cls:'btn-secondary',action:closeModal},
+    {label:'Create FY',cls:'btn-primary',action:async()=>{
+      const fy = document.getElementById('fy-input').value.trim();
+      if (!fy) { showToast('FY is required','error'); return; }
+      try {
+        const r = await sbFetch('/rest/v1/lats_fy', {method:'POST',
+          body:{fy, is_active: document.getElementById('fy-active').value==='true'},
+          headers:{'Prefer':'return=representation'}});
+        progState.fys = await sbFetch('/rest/v1/lats_fy?order=fy.desc');
+        progState.selectedFY = Array.isArray(r)?r[0]:r;
+        closeModal(); renderProgramme();
+        showToast('FY created!','success');
+      } catch(e) { showToast('Error: '+e.message,'error'); }
+    }}
+  ]);
+}
+
+async function deleteFY(id) {
+  confirmModal('Delete this Financial Year and all its data?', async()=>{
+    await sbFetch('/rest/v1/lats_fy?id=eq.'+id, {method:'DELETE'});
+    progState.fys = progState.fys.filter(f=>f.id!==id);
+    if (progState.selectedFY?.id===id) progState.selectedFY = progState.fys[0]||null;
+    renderProgramme();
+    showToast('FY deleted','info');
+  });
+}
+
+// ── Head Modal ──
+function openHeadModal(fyId) {
+  openModal('Add Programme Head', `
+    <div class="field"><label class="required">Head Name</label>
+      <input id="head-name" placeholder="e.g. Annual Plan 2026-27, PBMC 2026-27, SARDP-NE" style="width:100%"></div>`, [
+    {label:'Cancel',cls:'btn-secondary',action:closeModal},
+    {label:'Add Head',cls:'btn-primary',action:async()=>{
+      const name = document.getElementById('head-name').value.trim();
+      if (!name) { showToast('Head name required','error'); return; }
+      try {
+        await sbFetch('/rest/v1/lats_prog_heads', {method:'POST',
+          body:{fy_id:fyId, name, sort_order:progState.heads.filter(h=>h.fy_id===fyId).length}});
+        progState.heads = await sbFetch('/rest/v1/lats_prog_heads?order=sort_order,id');
+        closeModal(); renderProgramme();
+        showToast('Head added!','success');
+      } catch(e) { showToast('Error: '+e.message,'error'); }
+    }}
+  ]);
+}
+
+async function deleteHead(id) {
+  confirmModal('Delete this head and all its projects?', async()=>{
+    await sbFetch('/rest/v1/lats_prog_heads?id=eq.'+id, {method:'DELETE'});
+    progState.heads = progState.heads.filter(h=>h.id!==id);
+    progState.projects = progState.projects.filter(p=>p.head_id!==id);
+    renderProgramme();
+    showToast('Head deleted','info');
+  });
+}
+
+// ── Programme Project Modal ──
+function openProgProjectModal(id, headId) {
+  const p = id ? progState.projects.find(x=>x.id===id) : null;
+  const divUsers = (DB.users||[]).filter(u=>u.role==='nh_division');
+  const nhList = nhState.nhList||[];
+  openModal((p?'Edit':'Add')+' Project to Programme', `
+    <div class="form-grid cols-2">
+      <div class="field" style="grid-column:1/-1">
+        <label class="required">Project Name</label>
+        <input id="pp-name" value="${p?.name||''}" placeholder="e.g. Construction of 4-lane road from A to B">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Description</label>
+        <input id="pp-desc" value="${p?.description||''}" placeholder="Optional details">
+      </div>
+      <div class="field">
+        <label class="required">Assign to Division</label>
+        <select id="pp-div">
+          <option value="">— Select Division —</option>
+          ${divUsers.map(d=>'<option value="'+d.id+'"'+(p?.division_id===d.id?' selected':'')+'>'+d.name+'</option>').join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Expected Cost (₹ Crore)</label>
+        <input type="number" id="pp-cost" value="${p?.expected_cost||''}" placeholder="0.00">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>NH Numbers (select multiple)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:120px;overflow-y:auto">
+          ${nhList.map(nh=>`<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px">
+            <input type="checkbox" value="${nh.id}" ${(p?.nh_ids||[]).includes(nh.id)?'checked':''} style="accent-color:var(--accent)">
+            ${nh.nh_number}
+          </label>`).join('')}
+        </div>
+      </div>
+    </div>`, [
+    {label:'Cancel',cls:'btn-secondary',action:closeModal},
+    {label:p?'Update':'Add Project',cls:'btn-primary',action:async()=>{
+      const name = document.getElementById('pp-name').value.trim();
+      const divId = document.getElementById('pp-div').value;
+      if (!name) { showToast('Project name required','error'); return; }
+      if (!divId) { showToast('Please assign a division','error'); return; }
+      const nhIds = [...document.querySelectorAll('#pp-name ~ * input[type=checkbox]:checked, .modal input[type=checkbox]:checked')]
+        .map(cb=>parseInt(cb.value)).filter(Boolean);
+      const body = {
+        name, head_id: headId||p?.head_id,
+        description: document.getElementById('pp-desc').value||null,
+        division_id: parseInt(divId),
+        expected_cost: parseFloat(document.getElementById('pp-cost').value)||null,
+        nh_ids: nhIds.length>0?nhIds:null
+      };
+      try {
+        if (p) {
+          await sbFetch('/rest/v1/lats_prog_projects?id=eq.'+id, {method:'PATCH', body, headers:{'Prefer':'return=representation'}});
+        } else {
+          await sbFetch('/rest/v1/lats_prog_projects', {method:'POST', body, headers:{'Prefer':'return=representation'}});
+        }
+        progState.projects = await sbFetch('/rest/v1/lats_prog_projects?order=id');
+        closeModal(); renderProgramme();
+        showToast('Project saved!','success');
+      } catch(e) { showToast('Error: '+e.message,'error'); }
+    }}
+  ]);
+  document.querySelector('.modal').classList.add('wide');
+  // Wire up add-head-btn dynamically
+  setTimeout(()=>{
+    document.getElementById('add-head-btn')?.addEventListener('click', ()=>openHeadModal(progState.selectedFY?.id));
+  }, 100);
+}
+
+async function deleteProgProject(id) {
+  confirmModal('Delete this project from the programme?', async()=>{
+    await sbFetch('/rest/v1/lats_prog_projects?id=eq.'+id, {method:'DELETE'});
+    progState.projects = progState.projects.filter(p=>p.id!==id);
+    renderProgramme();
+    showToast('Project removed','info');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// ESTIMATES MODULE
+// ═══════════════════════════════════════════════════════
+
+const ESTIMATE_STAGES = [
+  { key:'draft',                label:'Draft',                 icon:'📝', color:'#94a3b8' },
+  { key:'returned_to_division', label:'Returned to Division',  icon:'↩️', color:'#f87171' },
+  { key:'circle_review',        label:'NH Circle Review',      icon:'🔵', color:'#60a5fa' },
+  { key:'returned_to_circle',   label:'Returned to Circle',    icon:'↩️', color:'#f87171' },
+  { key:'admin_review',         label:'Secretary (NH)',        icon:'⭐', color:'#f59e0b' },
+  { key:'returned_to_admin',    label:'Returned to Secretary', icon:'↩️', color:'#f87171' },
+  { key:'sent_morth',           label:'Sent to Ministry',      icon:'📤', color:'#a78bfa' },
+  { key:'approved',             label:'Approved',              icon:'✅', color:'#4ade80' },
+];
+
+function getEstStage(key) { return ESTIMATE_STAGES.find(s=>s.key===key)||ESTIMATE_STAGES[0]; }
+
+function canSubmitEstimate(est) {
+  const role = currentUser.role;
+  const status = est?.status||'draft';
+  if (role==='nh_division' && ['draft','returned_to_division'].includes(status)) return true;
+  if (role==='nh_circle' && ['circle_review','returned_to_circle'].includes(status)) return true;
+  if (role==='admin' && ['admin_review','returned_to_admin','sent_morth'].includes(status)) return true;
+  return false;
+}
+
+function canReturnEstimate(est) {
+  const role = currentUser.role;
+  const status = est?.status||'draft';
+  if (role==='nh_circle' && status==='circle_review') return true;
+  if (role==='admin' && status==='admin_review') return true;
+  if (role==='admin' && status==='sent_morth') return true;
+  return false;
+}
+
+function nextEstStatus(status) {
+  const map = {
+    draft:'circle_review', returned_to_division:'circle_review',
+    circle_review:'admin_review', returned_to_circle:'admin_review',
+    admin_review:'sent_morth', returned_to_admin:'sent_morth',
+    sent_morth:'approved'
+  };
+  return map[status]||null;
+}
+
+function returnEstStatus(status) {
+  const map = {
+    circle_review:'returned_to_division',
+    admin_review:'returned_to_circle',
+    sent_morth:'returned_to_admin'
+  };
+  return map[status]||null;
+}
+
+async function renderEstimates() {
+  const c = document.getElementById('page-content');
+  c.innerHTML = '<div style="padding:20px;color:var(--text-dim)">Loading...</div>';
+  await loadProgrammeData();
+  if (!DB.users||DB.users.length===0) {
+    try { DB.users = await api('GET','/api/auth/users'); } catch(e){}
+  }
+
+  const role = currentUser.role;
+  const isAdmin = role==='admin';
+  const isCircle = role==='nh_circle';
+  const isDivision = role==='nh_division';
+
+  // Filter estimates by role
+  let estimates = progState.estimates;
+  if (isDivision) {
+    const myDiv = DB.users.find(u=>u.id===currentUser.id);
+    estimates = estimates.filter(e=>e.division_id===currentUser.id);
+  } else if (isCircle) {
+    const myDivIds = (DB.users||[]).filter(u=>u.role==='nh_division'&&u.parent_id===currentUser.id).map(u=>u.id);
+    estimates = estimates.filter(e=>myDivIds.includes(e.division_id));
+  }
+
+  // Stage filter counts
+  const stageCounts = {};
+  ESTIMATE_STAGES.forEach(s=>{ stageCounts[s.key]=(estimates.filter(e=>e.status===s.key).length); });
+
+  c.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Estimates (${estimates.length})</h3>
+        ${(isDivision||isAdmin) ? '<button class="btn btn-primary" id="new-est-btn">+ New Estimate</button>' : ''}
+      </div>
+
+      <!-- Stage Filter Tabs -->
+      <div style="display:flex;gap:8px;padding:12px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+        <button onclick="filterEstStage('all',this)" style="padding:5px 12px;border-radius:20px;border:1px solid var(--accent);background:var(--accent);color:var(--navy);font-size:12px;font-weight:600;cursor:pointer">
+          All (${estimates.length})
+        </button>
+        ${ESTIMATE_STAGES.filter(s=>stageCounts[s.key]>0).map(s=>`
+          <button onclick="filterEstStage('${s.key}',this)" data-stage="${s.key}"
+            style="padding:5px 12px;border-radius:20px;border:1px solid ${s.color};background:transparent;color:${s.color};font-size:12px;font-weight:600;cursor:pointer">
+            ${s.icon} ${s.label} (${stageCounts[s.key]})
+          </button>`).join('')}
+      </div>
+
+      <div class="panel-body" style="padding:0">
+        ${estimates.length===0
+          ? '<div class="empty-state" style="padding:40px"><div class="icon">📝</div><h3>No Estimates Yet</h3><p>'+(isDivision?'Create your first estimate above.':'No estimates from your divisions yet.')+'</p></div>'
+          : '<table style="width:100%;border-collapse:collapse">'+
+            '<thead><tr style="background:var(--surface)">'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">#</th>'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Project</th>'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Division</th>'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Head</th>'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Est. Cost</th>'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Status</th>'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Actions</th>'+
+            '</tr></thead><tbody id="est-tbody"></tbody></table>'
+        }
+      </div>
+    </div>`;
+
+  document.getElementById('new-est-btn')?.addEventListener('click', ()=>openEstimateModal(null));
+
+  const tbody = document.getElementById('est-tbody');
+  if (!tbody) return;
+
+  estimates.forEach((est,i)=>{
+    const prog = progState.projects.find(p=>p.id===est.prog_project_id);
+    const head = prog ? progState.heads.find(h=>h.id===prog.head_id) : null;
+    const fy   = head ? progState.fys.find(f=>f.id===head.fy_id) : null;
+    const div  = (DB.users||[]).find(u=>u.id===est.division_id);
+    const stage= getEstStage(est.status);
+    const canEdit = (isDivision&&['draft','returned_to_division'].includes(est.status)) ||
+                    (isCircle&&['circle_review','returned_to_circle'].includes(est.status)) ||
+                    isAdmin;
+
+    const tr = document.createElement('tr');
+    tr.dataset.stage = est.status||'draft';
+    tr.style.cssText = 'border-top:1px solid var(--border)';
+    tr.innerHTML =
+      '<td style="padding:12px 14px;color:var(--text-dim)">'+(i+1)+'</td>'+
+      '<td style="padding:12px 14px"><strong>'+(est.project_name||prog?.name||'—')+'</strong>'+
+        (est.is_others?'<span style="font-size:10px;background:rgba(167,139,250,0.2);color:#a78bfa;border-radius:10px;padding:1px 6px;margin-left:6px">Others</span>':'')+
+      '</td>'+
+      '<td style="padding:12px 14px;font-size:13px">'+(div?.name||'—')+'</td>'+
+      '<td style="padding:12px 14px;font-size:12px;color:var(--text-dim)">'+(fy?fy.fy+' / ':'')+''+(head?.name||'Others')+'</td>'+
+      '<td style="padding:12px 14px;font-family:monospace">'+(est.estimated_cost?'₹'+parseFloat(est.estimated_cost).toLocaleString('en-IN')+' Cr':'—')+'</td>'+
+      '<td style="padding:12px 14px"><span style="background:'+stage.color+'22;color:'+stage.color+';border:1px solid '+stage.color+'44;border-radius:10px;padding:3px 10px;font-size:11px;font-weight:600">'+stage.icon+' '+stage.label+'</span></td>'+
+      '<td style="padding:12px 14px;white-space:nowrap">'+
+        '<button class="btn btn-secondary btn-sm" onclick="openEstimateDetail('+est.id+')">View</button>'+
+        (canEdit?'<button class="btn btn-secondary btn-sm" onclick="openEstimateModal('+est.id+')" style="margin-left:4px">✎</button>':'')+
+        (isAdmin?'<button class="btn btn-danger btn-sm" onclick="deleteEstimate('+est.id+')" style="margin-left:4px">🗑</button>':'')+
+      '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function filterEstStage(stage, btn) {
+  document.querySelectorAll('#est-tbody tr').forEach(r=>{
+    r.style.display=(stage==='all'||r.dataset.stage===stage)?'':'none';
+  });
+}
+
+// ── Estimate Modal ──
+async function openEstimateModal(id) {
+  const est = id ? progState.estimates.find(e=>e.id===id) : null;
+  await loadProgrammeData();
+  if (!DB.users||DB.users.length===0) try { DB.users=await api('GET','/api/auth/users'); } catch(e){}
+
+  const isDivision = currentUser.role==='nh_division';
+  const isAdmin = currentUser.role==='admin';
+  const divUsers = (DB.users||[]).filter(u=>u.role==='nh_division');
+
+  // Programme projects available to this division
+  let availProjects = progState.projects;
+  if (isDivision) availProjects = availProjects.filter(p=>p.division_id===currentUser.id);
+
+  // Group by head
+  const projectsByHead = {};
+  availProjects.forEach(p=>{
+    const head = progState.heads.find(h=>h.id===p.head_id);
+    const fy   = head ? progState.fys.find(f=>f.id===head.fy_id) : null;
+    const key  = fy?.fy+' / '+(head?.name||'');
+    if (!projectsByHead[key]) projectsByHead[key]=[];
+    projectsByHead[key].push(p);
+  });
+
+  // Build chainage rows
+  const existingChainages = id ? await sbFetch('/rest/v1/lats_estimate_chainages?estimate_id=eq.'+id+'&order=sort_order').catch(()=>[]) : [];
+  window._estChainages = existingChainages.length>0
+    ? existingChainages.map(c=>({nh_id:c.nh_id,chainage_from:c.chainage_from,chainage_to:c.chainage_to,place_from:c.place_from||'',place_to:c.place_to||''}))
+    : [{nh_id:'',chainage_from:'',chainage_to:'',place_from:'',place_to:''}];
+
+  function chainageRow(c,i) {
+    return '<div id="ec-row-'+i+'" style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1fr auto;gap:8px;margin-bottom:8px;padding:10px;background:var(--card);border-radius:6px;border:1px solid var(--border)">'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">NH Number</label>'+
+        '<select id="ec-nh-'+i+'">'+
+          '<option value="">—</option>'+
+          (nhState.nhList||[]).map(n=>'<option value="'+n.id+'"'+(c.nh_id==n.id?' selected':'')+'>'+n.nh_number+'</option>').join('')+
+        '</select></div>'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">Ch. From</label><input type="number" step="0.001" id="ec-from-'+i+'" value="'+(c.chainage_from||'')+'" placeholder="0.000"></div>'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">Place From</label><input id="ec-pf-'+i+'" value="'+(c.place_from||'')+'" placeholder="e.g. Pune"></div>'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">Ch. To</label><input type="number" step="0.001" id="ec-to-'+i+'" value="'+(c.chainage_to||'')+'" placeholder="0.000"></div>'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">Place To</label><input id="ec-pt-'+i+'" value="'+(c.place_to||'')+'" placeholder="e.g. Nashik"></div>'+
+      (i>0?'<button type="button" onclick="removeEstChainage('+i+')" style="background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.4);border-radius:4px;color:#f87171;cursor:pointer;padding:6px 8px;align-self:end">✕</button>':'<div></div>')+
+    '</div>';
+  }
+
+  openModal((est?'Edit':'Create')+' Estimate', `
+    <div class="form-grid cols-2" style="margin-bottom:16px">
+      <div class="field" style="grid-column:1/-1">
+        <label>Programme Project</label>
+        <select id="est-prog" onchange="onEstProgChange()">
+          <option value="">— Others (not in programme) —</option>
+          ${Object.entries(projectsByHead).map(([group,projs])=>
+            '<optgroup label="'+group+'">'+
+            projs.map(p=>'<option value="'+p.id+'"'+(est?.prog_project_id===p.id?' selected':'')+'>'+p.name+'</option>').join('')+
+            '</optgroup>'
+          ).join('')}
+        </select>
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label class="required">Project Name <span style="font-size:11px;color:var(--text-dim)">(auto-fills from programme, can edit)</span></label>
+        <input id="est-name" value="${est?.project_name||''}" placeholder="Project name">
+      </div>
+      ${isAdmin?'<div class="field"><label>Division</label><select id="est-div">'+divUsers.map(d=>'<option value="'+d.id+'"'+(est?.division_id===d.id?' selected':'')+'>'+d.name+'</option>').join('')+'</select></div>':'<input type="hidden" id="est-div" value="'+currentUser.id+'">'}
+      <div class="field"><label>Estimated Cost (₹ Crore)</label><input type="number" id="est-cost" value="${est?.estimated_cost||''}" placeholder="0.00"></div>
+      <div class="field"><label>Project Length (km)</label><input type="number" id="est-len" value="${est?.length||''}" placeholder="0.000"></div>
+    </div>
+
+    <!-- Chainages -->
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:13px;font-weight:700;color:var(--accent)">📍 Chainage Segments</span>
+        <button type="button" onclick="addEstChainage()" class="btn btn-secondary btn-sm">+ Add</button>
+      </div>
+      <div id="est-chainage-rows">${window._estChainages.map((c,i)=>chainageRow(c,i)).join('')}</div>
+    </div>
+
+    <!-- LA -->
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <span style="font-size:13px;font-weight:700;color:var(--accent)">🏗 Land Acquisition</span>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="est-la-req" ${est?.la_required?'checked':''} onchange="toggleEstLA()" style="width:16px;height:16px;accent-color:var(--accent)">LA Required?
+        </label>
+      </div>
+      <div id="est-la-section" style="display:${est?.la_required?'block':'none'}">
+        <div class="form-grid cols-2">
+          <div class="field"><label>Total Area (Ha)</label><input type="number" id="est-la-total" value="${est?.la_total_area||''}" placeholder="0.0000" oninput="calcEstLA()"></div>
+          <div class="field"><label>Available Area (Ha)</label><input type="number" id="est-la-avail" value="${est?.la_avail_area||''}" placeholder="0.0000" oninput="calcEstLA()"></div>
+          <div class="field"><label>To Acquire (Ha) <span style="font-size:10px;color:#4ade80">(auto)</span></label><input type="number" id="est-la-acquire" value="${est?.la_acquire_area||''}" readonly style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)"></div>
+          <div class="field"><label>Length Affected (km)</label><input type="number" id="est-la-length" value="${est?.la_length||''}" placeholder="0.000"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Forest -->
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <span style="font-size:13px;font-weight:700;color:#22c55e">🌳 Forest & Wildlife</span>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="est-forest-req" ${est?.forest_required?'checked':''} onchange="toggleEstForest()" style="width:16px;height:16px;accent-color:var(--accent)">Forest Clearance Required?
+        </label>
+      </div>
+      <div id="est-forest-section" style="display:${est?.forest_required?'block':'none'}">
+        <div class="form-grid cols-2">
+          <div class="field"><label>Forest Area (Ha)</label><input type="number" id="est-forest-area" value="${est?.forest_area||''}" placeholder="0.0000"></div>
+          <div class="field"><label>Length Affected (km)</label><input type="number" id="est-forest-length" value="${est?.forest_length||''}" placeholder="0.000"></div>
+        </div>
+      </div>
+    </div>
+  `, [
+    {label:'Cancel',cls:'btn-secondary',action:closeModal},
+    {label:est?'Update Estimate':'Create Estimate',cls:'btn-primary',action:()=>saveEstimate(id)}
+  ]);
+  document.querySelector('.modal').classList.add('wide');
+}
+
+function onEstProgChange() {
+  const sel = document.getElementById('est-prog');
+  const projId = parseInt(sel.value);
+  if (projId) {
+    const proj = progState.projects.find(p=>p.id===projId);
+    if (proj) document.getElementById('est-name').value = proj.name;
+  }
+}
+
+function toggleEstLA() { document.getElementById('est-la-section').style.display = document.getElementById('est-la-req').checked?'block':'none'; }
+function toggleEstForest() { document.getElementById('est-forest-section').style.display = document.getElementById('est-forest-req').checked?'block':'none'; }
+function calcEstLA() {
+  const t=parseFloat(document.getElementById('est-la-total')?.value)||0;
+  const a=parseFloat(document.getElementById('est-la-avail')?.value)||0;
+  const el=document.getElementById('est-la-acquire');
+  if(el) el.value=t>0?Math.max(0,t-a).toFixed(4):'';
+}
+
+function addEstChainage() {
+  if(!window._estChainages) window._estChainages=[];
+  window._estChainages.push({nh_id:'',chainage_from:'',chainage_to:'',place_from:'',place_to:''});
+  const i=window._estChainages.length-1;
+  const div=document.createElement('div');
+  div.innerHTML='<div id="ec-row-'+i+'" style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1fr auto;gap:8px;margin-bottom:8px;padding:10px;background:var(--card);border-radius:6px;border:1px solid var(--border)">'+
+    '<div class="field" style="margin:0"><label style="font-size:11px">NH Number</label><select id="ec-nh-'+i+'"><option value="">—</option>'+
+    (nhState.nhList||[]).map(n=>'<option value="'+n.id+'">'+n.nh_number+'</option>').join('')+'</select></div>'+
+    '<div class="field" style="margin:0"><label style="font-size:11px">Ch. From</label><input type="number" step="0.001" id="ec-from-'+i+'" placeholder="0.000"></div>'+
+    '<div class="field" style="margin:0"><label style="font-size:11px">Place From</label><input id="ec-pf-'+i+'" placeholder="e.g. Pune"></div>'+
+    '<div class="field" style="margin:0"><label style="font-size:11px">Ch. To</label><input type="number" step="0.001" id="ec-to-'+i+'" placeholder="0.000"></div>'+
+    '<div class="field" style="margin:0"><label style="font-size:11px">Place To</label><input id="ec-pt-'+i+'" placeholder="e.g. Nashik"></div>'+
+    '<button type="button" onclick="removeEstChainage('+i+')" style="background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.4);border-radius:4px;color:#f87171;cursor:pointer;padding:6px 8px;align-self:end">✕</button>'+
+  '</div>';
+  document.getElementById('est-chainage-rows').appendChild(div.firstElementChild);
+}
+
+function removeEstChainage(i) {
+  if(window._estChainages) window._estChainages[i]=null;
+  document.getElementById('ec-row-'+i)?.remove();
+}
+
+async function saveEstimate(id) {
+  const name = document.getElementById('est-name').value.trim();
+  if (!name) { showToast('Project name is required','error'); return; }
+  const divId = document.getElementById('est-div')?.value;
+  if (!divId) { showToast('Division is required','error'); return; }
+
+  const laReq = document.getElementById('est-la-req')?.checked||false;
+  const forestReq = document.getElementById('est-forest-req')?.checked||false;
+  const progId = parseInt(document.getElementById('est-prog')?.value)||null;
+
+  const data = {
+    project_name: name,
+    division_id: parseInt(divId),
+    prog_project_id: progId||null,
+    is_others: !progId,
+    estimated_cost: parseFloat(document.getElementById('est-cost')?.value)||null,
+    length: parseFloat(document.getElementById('est-len')?.value)||null,
+    la_required: laReq,
+    forest_required: forestReq,
+  };
+  if (laReq) {
+    data.la_total_area = parseFloat(document.getElementById('est-la-total')?.value)||null;
+    data.la_avail_area = parseFloat(document.getElementById('est-la-avail')?.value)||null;
+    data.la_acquire_area = parseFloat(document.getElementById('est-la-acquire')?.value)||null;
+    data.la_length = parseFloat(document.getElementById('est-la-length')?.value)||null;
+  }
+  if (forestReq) {
+    data.forest_area = parseFloat(document.getElementById('est-forest-area')?.value)||null;
+    data.forest_length = parseFloat(document.getElementById('est-forest-length')?.value)||null;
+  }
+
+  // Collect chainages
+  const chainages = (window._estChainages||[]).filter(Boolean).map((c,i)=>({
+    nh_id: parseInt(document.getElementById('ec-nh-'+i)?.value)||null,
+    chainage_from: parseFloat(document.getElementById('ec-from-'+i)?.value)||null,
+    chainage_to: parseFloat(document.getElementById('ec-to-'+i)?.value)||null,
+    place_from: document.getElementById('ec-pf-'+i)?.value||null,
+    place_to: document.getElementById('ec-pt-'+i)?.value||null,
+  })).filter(c=>c.chainage_from!==null||c.nh_id);
+
+  try {
+    let estId;
+    if (id) {
+      await sbFetch('/rest/v1/lats_estimates?id=eq.'+id, {method:'PATCH', body:data, headers:{'Prefer':'return=representation'}});
+      estId = id;
+      // Log edit stage
+      await sbFetch('/rest/v1/lats_estimate_stages', {method:'POST', body:{estimate_id:id, stage:'edit', submitted_by:currentUser.id, data}});
+      showToast('Estimate updated!','success');
+    } else {
+      data.status = 'draft';
+      const r = await sbFetch('/rest/v1/lats_estimates', {method:'POST', body:data, headers:{'Prefer':'return=representation'}});
+      const created = Array.isArray(r)?r[0]:r;
+      estId = created?.id;
+      await sbFetch('/rest/v1/lats_estimate_stages', {method:'POST', body:{estimate_id:estId, stage:'draft', submitted_by:currentUser.id, data}});
+      showToast('Estimate created!','success');
+    }
+    // Save chainages
+    if (estId && chainages.length>0) {
+      await sbFetch('/rest/v1/lats_estimate_chainages?estimate_id=eq.'+estId, {method:'DELETE'});
+      for (let i=0;i<chainages.length;i++) {
+        await sbFetch('/rest/v1/lats_estimate_chainages', {method:'POST', body:{...chainages[i], estimate_id:estId, sort_order:i}});
+      }
+    }
+    progState.estimates = await sbFetch('/rest/v1/lats_estimates?order=id');
+    closeModal(); renderEstimates();
+  } catch(e) { showToast('Error: '+e.message,'error'); console.error(e); }
+}
+
+async function openEstimateDetail(id) {
+  const est = progState.estimates.find(e=>e.id===id);
+  if (!est) return;
+  openModal('Estimate: '+est.project_name, '<div style="padding:20px;text-align:center;color:var(--text-dim)">Loading...</div>', [{label:'Close',cls:'btn-secondary',action:closeModal}]);
+  document.querySelector('.modal').classList.add('wide');
+
+  const [chainages, stages] = await Promise.all([
+    sbFetch('/rest/v1/lats_estimate_chainages?estimate_id=eq.'+id+'&order=sort_order').catch(()=>[]),
+    sbFetch('/rest/v1/lats_estimate_stages?estimate_id=eq.'+id+'&order=submitted_at').catch(()=>[])
+  ]);
+
+  const prog = progState.projects.find(p=>p.id===est.prog_project_id);
+  const head = prog ? progState.heads.find(h=>h.id===prog.head_id) : null;
+  const fy   = head ? progState.fys.find(f=>f.id===head.fy_id) : null;
+  const div  = (DB.users||[]).find(u=>u.id===est.division_id);
+  const stage= getEstStage(est.status);
+  const stageIdx = ESTIMATE_STAGES.findIndex(s=>s.key===est.status);
+  const canSubmit = canSubmitEstimate(est);
+  const canReturn = canReturnEstimate(est);
+  const nextSt  = nextEstStatus(est.status);
+  const retSt   = returnEstStatus(est.status);
+  const nextStage= nextSt?getEstStage(nextSt):null;
+  const canEdit = (currentUser.role==='nh_division'&&['draft','returned_to_division'].includes(est.status))||currentUser.role==='admin';
+
+  document.getElementById('modal-body').innerHTML = `
+    <!-- Stage Progress -->
+    <div style="display:flex;align-items:center;gap:0;margin-bottom:20px;overflow-x:auto;padding-bottom:4px">
+      ${ESTIMATE_STAGES.filter(s=>!s.key.startsWith('returned')).map((s,i)=>{
+        const mainIdx = ['draft','circle_review','admin_review','sent_morth','approved'].indexOf(est.status);
+        const thisIdx = ['draft','circle_review','admin_review','sent_morth','approved'].indexOf(s.key);
+        const filled = thisIdx<=mainIdx;
+        return '<div style="display:flex;align-items:center;flex-shrink:0">'+
+          '<div style="text-align:center;padding:0 6px">'+
+            '<div style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;margin:0 auto;background:'+(filled?s.color:'rgba(255,255,255,0.1)')+';border:2px solid '+(filled?s.color:'rgba(255,255,255,0.2)')+'">'+
+              (thisIdx<mainIdx?'✓':s.icon)+
+            '</div>'+
+            '<div style="font-size:10px;margin-top:4px;color:'+(filled?s.color:'var(--text-dim)')+';white-space:nowrap">'+s.label+'</div>'+
+          '</div>'+
+          (i<4?'<div style="width:24px;height:2px;background:'+(filled?s.color:'rgba(255,255,255,0.1)')+';flex-shrink:0"></div>':'')+
+        '</div>';
+      }).join('')}
+    </div>
+
+    <!-- Info -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Programme</div>
+        <div style="font-weight:600;font-size:13px">${fy?fy.fy+' / ':''} ${head?.name||'Others'}</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Division</div>
+        <div style="font-weight:600">${div?.name||'—'}</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Status</div>
+        <div style="font-weight:600;color:${stage.color}">${stage.icon} ${stage.label}</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Est. Cost</div>
+        <div style="font-weight:600">${est.estimated_cost?'₹'+parseFloat(est.estimated_cost).toLocaleString('en-IN')+' Cr':'—'}</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Length</div>
+        <div style="font-weight:600">${est.length?est.length+' km':'—'}</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Type</div>
+        <div style="font-weight:600">${est.is_others?'🟣 Others':'📋 Programme'}</div>
+      </div>
+    </div>
+
+    <!-- Chainages -->
+    ${chainages.length>0?'<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;margin-bottom:6px">📍 Chainages</div>'+
+      chainages.map(c=>{const nh=nhState.nhList.find(n=>n.id===c.nh_id);return '<div style="background:var(--card);border-radius:6px;padding:8px 12px;margin-bottom:4px;border:1px solid var(--border);font-size:12px">'+
+        (nh?'<span style="color:var(--accent);font-weight:600">'+nh.nh_number+'</span> &nbsp;·&nbsp; ':'')+'Ch. '+c.chainage_from+(c.place_from?' ('+c.place_from+')':'')+' → '+c.chainage_to+(c.place_to?' ('+c.place_to+')':'')+
+        ' &nbsp;<strong>'+((parseFloat(c.chainage_to)||0)-(parseFloat(c.chainage_from)||0)).toFixed(3)+' km</strong></div>';}).join('')+
+    '</div>':''}
+
+    <!-- LA -->
+    ${est.la_required?'<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:12px;margin-bottom:10px">'+
+      '<div style="font-size:12px;font-weight:700;color:#60a5fa;margin-bottom:8px">🏗 Land Acquisition</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:13px">'+
+      '<div><div style="color:var(--text-dim);font-size:11px">Total Area</div><strong>'+(est.la_total_area||'—')+' Ha</strong></div>'+
+      '<div><div style="color:var(--text-dim);font-size:11px">Available</div><strong>'+(est.la_avail_area||'—')+' Ha</strong></div>'+
+      '<div><div style="color:var(--text-dim);font-size:11px">To Acquire</div><strong>'+(est.la_acquire_area||'—')+' Ha</strong></div>'+
+      '<div><div style="color:var(--text-dim);font-size:11px">Length Affected</div><strong>'+(est.la_length||'—')+' km</strong></div>'+
+      '</div></div>':''}
+
+    <!-- Forest -->
+    ${est.forest_required?'<div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:12px;margin-bottom:10px">'+
+      '<div style="font-size:12px;font-weight:700;color:#4ade80;margin-bottom:8px">🌳 Forest & Wildlife</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">'+
+      '<div><div style="color:var(--text-dim);font-size:11px">Forest Area</div><strong>'+(est.forest_area||'—')+' Ha</strong></div>'+
+      '<div><div style="color:var(--text-dim);font-size:11px">Length Affected</div><strong>'+(est.forest_length||'—')+' km</strong></div>'+
+      '</div></div>':''}
+
+    <!-- File Tracking -->
+    ${stages.filter(s=>s.stage!=='edit').length>0?'<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">'+
+      '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px">📋 File Tracking</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr style="background:var(--surface)">'+
+        '<th style="padding:6px 10px;color:var(--text-dim)">Date</th>'+
+        '<th style="padding:6px 10px;color:var(--text-dim)">Stage</th>'+
+        '<th style="padding:6px 10px;color:var(--text-dim)">Outward No.</th>'+
+        '<th style="padding:6px 10px;color:var(--text-dim)">Outward Date</th>'+
+        '<th style="padding:6px 10px;color:var(--text-dim)">Remarks</th>'+
+      '</tr></thead><tbody>'+
+      stages.filter(s=>s.stage!=='edit').map(s=>'<tr style="border-top:1px solid var(--border)">'+
+        '<td style="padding:7px 10px;color:var(--text-dim)">'+new Date(s.submitted_at).toLocaleDateString('en-IN')+'</td>'+
+        '<td style="padding:7px 10px"><span style="background:'+getEstStage(s.stage).color+'22;color:'+getEstStage(s.stage).color+';border-radius:10px;padding:2px 8px;font-size:11px">'+getEstStage(s.stage).icon+' '+getEstStage(s.stage).label+'</span></td>'+
+        '<td style="padding:7px 10px;font-family:monospace;color:var(--accent)">'+(s.outward_no||'—')+'</td>'+
+        '<td style="padding:7px 10px;color:var(--text-dim)">'+(s.outward_date?new Date(s.outward_date).toLocaleDateString('en-IN'):'—')+'</td>'+
+        '<td style="padding:7px 10px;color:var(--text-dim)">'+(s.remarks||'—')+'</td>'+
+      '</tr>').join('')+
+      '</tbody></table></div>':''}
+
+    <!-- Submit / Return -->
+    ${canSubmit||canReturn?'<div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px">'+
+      '<div class="form-grid cols-2" style="margin-bottom:12px">'+
+        '<div class="field"><label class="required">Outward Number</label>'+
+          '<input id="est-outward-no" placeholder="e.g. NH/DIV/2024/001" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text)"></div>'+
+        '<div class="field"><label class="required">Outward Date</label>'+
+          '<input type="date" id="est-outward-date" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text)"></div>'+
+        '<div class="field" style="grid-column:1/-1"><label>Remarks</label>'+
+          '<textarea id="est-remarks" rows="2" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);resize:vertical" placeholder="Add remarks..."></textarea></div>'+
+      '</div>'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+        (canSubmit&&nextStage?'<button class="btn btn-primary" onclick="submitEstimateStage('+id+',\''+nextSt+'\')">📤 Forward to '+nextStage.label+'</button>':'')+ 
+        (canReturn?'<button class="btn btn-danger" onclick="submitEstimateStage('+id+',\''+retSt+'\',true)">↩️ Return with Observation</button>':'')+ 
+      '</div></div>':''}
+  `;
+
+  // Update footer
+  const footer = document.getElementById('modal-footer');
+  footer.innerHTML='';
+  const btnClose = document.createElement('button');
+  btnClose.className='btn btn-secondary'; btnClose.textContent='Close'; btnClose.onclick=closeModal;
+  footer.appendChild(btnClose);
+  if (canEdit) {
+    const btnEdit = document.createElement('button');
+    btnEdit.className='btn btn-secondary'; btnEdit.textContent='✎ Edit';
+    btnEdit.onclick=()=>{closeModal();openEstimateModal(id);};
+    footer.appendChild(btnEdit);
+  }
+}
+
+async function submitEstimateStage(estId, newStatus, isReturn=false) {
+  const outwardNo   = document.getElementById('est-outward-no')?.value.trim();
+  const outwardDate = document.getElementById('est-outward-date')?.value;
+  const remarks     = document.getElementById('est-remarks')?.value||'';
+  if (!outwardNo)   { showToast('Outward Number is required','error'); return; }
+  if (!outwardDate) { showToast('Outward Date is required','error'); return; }
+  if (isReturn&&!remarks) { showToast('Remarks required when returning','error'); return; }
+  try {
+    await sbFetch('/rest/v1/lats_estimates?id=eq.'+estId, {method:'PATCH',
+      body:{status:newStatus}, headers:{'Prefer':'return=representation'}});
+    await sbFetch('/rest/v1/lats_estimate_stages', {method:'POST', body:{
+      estimate_id:estId, stage:newStatus, submitted_by:currentUser.id,
+      outward_no:outwardNo, outward_date:outwardDate, remarks:remarks||null
+    }});
+    progState.estimates = await sbFetch('/rest/v1/lats_estimates?order=id');
+    closeModal();
+    renderEstimates();
+    showToast((isReturn?'Returned':'Forwarded to ')+getEstStage(newStatus).label+'!','success');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+async function deleteEstimate(id) {
+  confirmModal('Delete this estimate?', async()=>{
+    await sbFetch('/rest/v1/lats_estimates?id=eq.'+id, {method:'DELETE'});
+    progState.estimates = progState.estimates.filter(e=>e.id!==id);
+    renderEstimates();
+    showToast('Estimate deleted','info');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// SCOPE ITEMS MODULE (Admin)
+// ═══════════════════════════════════════════════════════
+async function renderScopeItems() {
+  const c = document.getElementById('page-content');
+  if (!progState.scopeItems.length) await loadProgrammeData();
+  c.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Scope Items (${progState.scopeItems.length})</h3>
+        <button class="btn btn-primary" id="add-scope-btn">+ Add Item</button>
+      </div>
+      <div class="panel-body" style="padding:0">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--surface)">
+            <th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">#</th>
+            <th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Item Name</th>
+            <th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Unit</th>
+            <th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Actions</th>
+          </tr></thead>
+          <tbody>
+            ${progState.scopeItems.map((s,i)=>`<tr style="border-top:1px solid var(--border)">
+              <td style="padding:10px 14px;color:var(--text-dim)">${i+1}</td>
+              <td style="padding:10px 14px;font-weight:600">${s.name}</td>
+              <td style="padding:10px 14px;color:var(--text-dim)">${s.unit||'—'}</td>
+              <td style="padding:10px 14px">
+                <button class="btn btn-danger btn-sm" onclick="deleteScopeItem(${s.id})">🗑</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  document.getElementById('add-scope-btn')?.addEventListener('click', ()=>{
+    openModal('Add Scope Item', `
+      <div class="form-grid cols-2">
+        <div class="field"><label class="required">Item Name</label><input id="si-name" placeholder="e.g. Earthwork Excavation"></div>
+        <div class="field"><label class="required">Unit</label><input id="si-unit" placeholder="e.g. Cum, MT, Nos, km"></div>
+      </div>`, [
+      {label:'Cancel',cls:'btn-secondary',action:closeModal},
+      {label:'Add Item',cls:'btn-primary',action:async()=>{
+        const name=document.getElementById('si-name').value.trim();
+        const unit=document.getElementById('si-unit').value.trim();
+        if(!name||!unit){showToast('Name and unit required','error');return;}
+        try {
+          await sbFetch('/rest/v1/lats_scope_items',{method:'POST',body:{name,unit,sort_order:progState.scopeItems.length}});
+          progState.scopeItems=await sbFetch('/rest/v1/lats_scope_items?order=sort_order,name');
+          closeModal();renderScopeItems();showToast('Item added!','success');
+        } catch(e){showToast('Error: '+e.message,'error');}
+      }}
+    ]);
+  });
+}
+
+async function deleteScopeItem(id) {
+  confirmModal('Delete this scope item?',async()=>{
+    await sbFetch('/rest/v1/lats_scope_items?id=eq.'+id,{method:'DELETE'});
+    progState.scopeItems=progState.scopeItems.filter(s=>s.id!==id);
+    renderScopeItems();showToast('Deleted','info');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// CONTRACTS & PROGRESS MODULE
+// ═══════════════════════════════════════════════════════
+async function renderContractsProgress() {
+  const c = document.getElementById('page-content');
+  c.innerHTML='<div style="padding:20px;color:var(--text-dim)">Loading...</div>';
+  await loadProgrammeData();
+  if(!DB.users||DB.users.length===0) try{DB.users=await api('GET','/api/auth/users');}catch(e){}
+
+  // Get approved estimates
+  const role=currentUser.role;
+  let approved = progState.estimates.filter(e=>e.status==='approved');
+  if(role==='nh_division') approved=approved.filter(e=>e.division_id===currentUser.id);
+  else if(role==='nh_circle'){
+    const myDivIds=(DB.users||[]).filter(u=>u.role==='nh_division'&&u.parent_id===currentUser.id).map(u=>u.id);
+    approved=approved.filter(e=>myDivIds.includes(e.division_id));
+  }
+
+  c.innerHTML=`
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Contracts & Work Progress (${approved.length} approved estimates)</h3>
+      </div>
+      <div class="panel-body" style="padding:0">
+        ${approved.length===0
+          ?'<div class="empty-state" style="padding:40px"><div class="icon">🏗</div><h3>No Approved Estimates</h3><p>Approved estimates will appear here for contract management.</p></div>'
+          :'<table style="width:100%;border-collapse:collapse">'+
+            '<thead><tr style="background:var(--surface)">'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">#</th>'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Project</th>'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Division</th>'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Approved Cost</th>'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Contract</th>'+
+            '<th style="padding:10px 14px;font-size:11px;color:var(--text-dim);text-transform:uppercase">Actions</th>'+
+            '</tr></thead><tbody id="contract-tbody"></tbody></table>'
+        }
+      </div>
+    </div>`;
+
+  const tbody=document.getElementById('contract-tbody');
+  if(!tbody) return;
+  approved.forEach((est,i)=>{
+    const div=(DB.users||[]).find(u=>u.id===est.division_id);
+    const contract=progState.contracts.find(c=>c.estimate_id===est.id);
+    const tr=document.createElement('tr');
+    tr.style.cssText='border-top:1px solid var(--border)';
+    tr.innerHTML=
+      '<td style="padding:12px 14px;color:var(--text-dim)">'+(i+1)+'</td>'+
+      '<td style="padding:12px 14px"><strong>'+(est.project_name||'—')+'</strong></td>'+
+      '<td style="padding:12px 14px;font-size:13px">'+(div?.name||'—')+'</td>'+
+      '<td style="padding:12px 14px;font-family:monospace">'+(est.estimated_cost?'₹'+parseFloat(est.estimated_cost).toLocaleString('en-IN')+' Cr':'—')+'</td>'+
+      '<td style="padding:12px 14px">'+(contract?'<span style="color:#4ade80;font-size:12px">✅ '+contract.agreement_no+'</span>':'<span style="color:var(--text-dim);font-size:12px">Not yet</span>')+'</td>'+
+      '<td style="padding:12px 14px;white-space:nowrap">'+
+        (contract
+          ?'<button class="btn btn-secondary btn-sm" onclick="openContractDetail('+contract.id+')">View Progress</button>'
+          :(currentUser.role==='admin'?'<button class="btn btn-primary btn-sm" onclick="openContractModal('+est.id+')">+ Add Contract</button>':'—'))+
+      '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+async function openContractModal(estId) {
+  const est=progState.estimates.find(e=>e.id===estId);
+  openModal('Add Contract — '+est?.project_name, `
+    <div class="form-grid cols-2">
+      <div class="field"><label class="required">Contractor Name</label><input id="con-name" placeholder="Contractor name"></div>
+      <div class="field"><label class="required">Agreement Number</label><input id="con-no" placeholder="e.g. NH/AGR/2024/001"></div>
+      <div class="field"><label class="required">Agreement Date</label><input type="date" id="con-date"></div>
+      <div class="field"><label class="required">Agreement Amount (₹ Crore)</label><input type="number" id="con-amt" placeholder="0.00"></div>
+      <div class="field"><label>Work Start Date</label><input type="date" id="con-start"></div>
+      <div class="field"><label>Scheduled Completion</label><input type="date" id="con-end"></div>
+    </div>`, [
+    {label:'Cancel',cls:'btn-secondary',action:closeModal},
+    {label:'Save Contract',cls:'btn-primary',action:async()=>{
+      const name=document.getElementById('con-name').value.trim();
+      const no=document.getElementById('con-no').value.trim();
+      const date=document.getElementById('con-date').value;
+      const amt=parseFloat(document.getElementById('con-amt').value)||null;
+      if(!name||!no||!date){showToast('Contractor name, agreement no and date are required','error');return;}
+      try {
+        const r=await sbFetch('/rest/v1/lats_contracts2',{method:'POST',body:{
+          estimate_id:estId, contractor_name:name, agreement_no:no,
+          agreement_date:date, agreement_amt:amt,
+          start_date:document.getElementById('con-start').value||null,
+          completion_date:document.getElementById('con-end').value||null
+        },headers:{'Prefer':'return=representation'}});
+        progState.contracts=await sbFetch('/rest/v1/lats_contracts2?order=id');
+        closeModal();renderContractsProgress();showToast('Contract added!','success');
+      } catch(e){showToast('Error: '+e.message,'error');}
+    }}
+  ]);
+  document.querySelector('.modal').classList.add('wide');
+}
+
+async function openContractDetail(contractId) {
+  const contract=progState.contracts.find(c=>c.id===contractId);
+  const est=progState.estimates.find(e=>e.id===contract?.estimate_id);
+  openModal('Contract: '+(est?.project_name||''),'<div style="padding:20px;text-align:center;color:var(--text-dim)">Loading...</div>',[{label:'Close',cls:'btn-secondary',action:closeModal}]);
+  document.querySelector('.modal').classList.add('wide');
+
+  const [scope, progress] = await Promise.all([
+    sbFetch('/rest/v1/lats_contract_scope?contract_id=eq.'+contractId+'&order=id').catch(()=>[]),
+    sbFetch('/rest/v1/lats_progress?contract_id=eq.'+contractId+'&order=entry_date.desc').catch(()=>[])
+  ]);
+
+  // Calculate totals
+  const totalAmt=scope.reduce((s,item)=>s+(parseFloat(item.amount)||0),0);
+  const scopeWithProgress=scope.map(item=>{
+    const itemProgress=progress.filter(p=>p.scope_id===item.id);
+    const executedQty=itemProgress.reduce((s,p)=>s+(parseFloat(p.quantity)||0),0);
+    const pct=item.quantity>0?Math.min(100,(executedQty/item.quantity*100)).toFixed(1):0;
+    return {...item, executedQty, pct};
+  });
+  const overallPct=scopeWithProgress.length>0?(scopeWithProgress.reduce((s,i)=>s+parseFloat(i.pct),0)/scopeWithProgress.length).toFixed(1):0;
+
+  document.getElementById('modal-body').innerHTML=`
+    <!-- Contract Info -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Contractor</div>
+        <div style="font-weight:600">${contract.contractor_name||'—'}</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Agreement No.</div>
+        <div style="font-weight:600;font-family:monospace">${contract.agreement_no||'—'}</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Agreement Amount</div>
+        <div style="font-weight:600">${contract.agreement_amt?'₹'+parseFloat(contract.agreement_amt).toLocaleString('en-IN')+' Cr':'—'}</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Start Date</div>
+        <div style="font-weight:600">${contract.start_date?new Date(contract.start_date).toLocaleDateString('en-IN'):'—'}</div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-dim)">Completion Date</div>
+        <div style="font-weight:600">${contract.completion_date?new Date(contract.completion_date).toLocaleDateString('en-IN'):'—'}</div>
+      </div>
+      <div style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.3);border-radius:8px;padding:10px">
+        <div style="font-size:11px;color:var(--text-dim)">Overall Progress</div>
+        <div style="font-weight:700;font-size:20px;color:#4ade80">${overallPct}%</div>
+      </div>
+    </div>
+
+    <!-- Scope Table -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--accent)">📦 Scope of Work</div>
+      ${currentUser.role==='admin'?'<button class="btn btn-primary btn-sm" onclick="openScopeModal('+contractId+')">+ Add Item</button>':''}
+    </div>
+    ${scopeWithProgress.length===0
+      ?'<div style="text-align:center;padding:20px;color:var(--text-dim)">No scope items added yet.</div>'
+      :'<table style="width:100%;border-collapse:collapse;margin-bottom:16px">'+
+        '<thead><tr style="background:var(--surface)">'+
+        '<th style="padding:8px 12px;font-size:11px;color:var(--text-dim);text-align:left">Item</th>'+
+        '<th style="padding:8px 12px;font-size:11px;color:var(--text-dim);text-align:left">Unit</th>'+
+        '<th style="padding:8px 12px;font-size:11px;color:var(--text-dim);text-align:right">Total Qty</th>'+
+        '<th style="padding:8px 12px;font-size:11px;color:var(--text-dim);text-align:right">Executed</th>'+
+        '<th style="padding:8px 12px;font-size:11px;color:var(--text-dim);text-align:right">Rate</th>'+
+        '<th style="padding:8px 12px;font-size:11px;color:var(--text-dim);text-align:right">Amount</th>'+
+        '<th style="padding:8px 12px;font-size:11px;color:var(--text-dim);text-align:center">Progress</th>'+
+        '<th style="padding:8px 12px;font-size:11px;color:var(--text-dim);text-align:center">Actions</th>'+
+        '</tr></thead><tbody>'+
+        scopeWithProgress.map(item=>'<tr style="border-top:1px solid var(--border)">'+
+          '<td style="padding:10px 12px;font-weight:600">'+(item.item_name||'—')+'</td>'+
+          '<td style="padding:10px 12px;color:var(--text-dim)">'+(item.unit||'—')+'</td>'+
+          '<td style="padding:10px 12px;font-family:monospace;text-align:right">'+(item.quantity?parseFloat(item.quantity).toLocaleString('en-IN'):'—')+'</td>'+
+          '<td style="padding:10px 12px;font-family:monospace;text-align:right;color:#4ade80">'+item.executedQty.toFixed(2)+'</td>'+
+          '<td style="padding:10px 12px;font-family:monospace;text-align:right">'+(item.rate?'₹'+parseFloat(item.rate).toLocaleString('en-IN'):'—')+'</td>'+
+          '<td style="padding:10px 12px;font-family:monospace;text-align:right">'+(item.amount?'₹'+parseFloat(item.amount).toLocaleString('en-IN'):'—')+'</td>'+
+          '<td style="padding:10px 12px;min-width:120px">'+
+            '<div style="display:flex;align-items:center;gap:6px">'+
+              '<div style="flex:1;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden">'+
+                '<div style="height:100%;width:'+item.pct+'%;background:#4ade80;border-radius:4px"></div>'+
+              '</div>'+
+              '<span style="font-size:11px;font-weight:600;color:#4ade80;white-space:nowrap">'+item.pct+'%</span>'+
+            '</div>'+
+          '</td>'+
+          '<td style="padding:10px 12px;text-align:center">'+
+            '<button class="btn btn-primary btn-sm" onclick="openProgressEntry('+item.id+',\''+item.item_name+'\','+item.quantity+',\''+item.unit+'\','+contractId+')">+ Progress</button>'+
+          '</td>'+
+        '</tr>').join('')+
+        '</tbody></table>'
+    }
+
+    <!-- Recent Progress Entries -->
+    ${progress.length>0?'<div style="border-top:1px solid var(--border);padding-top:12px">'+
+      '<div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:10px">📈 Recent Progress Entries</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr style="background:var(--surface)">'+
+        '<th style="padding:6px 10px;color:var(--text-dim)">Date</th>'+
+        '<th style="padding:6px 10px;color:var(--text-dim)">Item</th>'+
+        '<th style="padding:6px 10px;color:var(--text-dim);text-align:right">Quantity</th>'+
+        '<th style="padding:6px 10px;color:var(--text-dim)">Remarks</th>'+
+      '</tr></thead><tbody>'+
+      progress.slice(0,20).map(p=>{
+        const item=scope.find(s=>s.id===p.scope_id);
+        return '<tr style="border-top:1px solid var(--border)">'+
+          '<td style="padding:7px 10px;color:var(--text-dim)">'+new Date(p.entry_date).toLocaleDateString('en-IN')+'</td>'+
+          '<td style="padding:7px 10px;font-weight:600">'+(item?.item_name||'—')+'</td>'+
+          '<td style="padding:7px 10px;font-family:monospace;text-align:right;color:#4ade80">'+p.quantity+' '+(item?.unit||'')+'</td>'+
+          '<td style="padding:7px 10px;color:var(--text-dim)">'+(p.remarks||'—')+'</td>'+
+        '</tr>';
+      }).join('')+
+      '</tbody></table></div>':''}
+  `;
+
+  const footer=document.getElementById('modal-footer');
+  footer.innerHTML='';
+  const btnClose=document.createElement('button');
+  btnClose.className='btn btn-secondary';btnClose.textContent='Close';btnClose.onclick=closeModal;
+  footer.appendChild(btnClose);
+}
+
+function openScopeModal(contractId) {
+  openModal('Add Scope Item to Contract', `
+    <div class="form-grid cols-2">
+      <div class="field" style="grid-column:1/-1"><label class="required">Select Item</label>
+        <select id="scope-sel" onchange="onScopeSelect()">
+          <option value="">— Select scope item —</option>
+          ${progState.scopeItems.map(s=>'<option value="'+s.id+'" data-unit="'+s.unit+'" data-name="'+s.name+'">'+s.name+' ('+s.unit+')</option>').join('')}
+        </select>
+      </div>
+      <div class="field"><label class="required">Unit</label><input id="scope-unit" placeholder="Unit" readonly></div>
+      <div class="field"><label class="required">Total Quantity</label><input type="number" id="scope-qty" placeholder="0.000"></div>
+      <div class="field"><label>Rate (₹)</label><input type="number" id="scope-rate" placeholder="0.00" oninput="calcScopeAmount()"></div>
+      <div class="field"><label>Amount (₹ Crore) <span style="font-size:10px;color:#4ade80">(auto)</span></label><input type="number" id="scope-amt" readonly style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)"></div>
+    </div>`, [
+    {label:'Cancel',cls:'btn-secondary',action:closeModal},
+    {label:'Add Item',cls:'btn-primary',action:async()=>{
+      const selEl=document.getElementById('scope-sel');
+      const itemId=parseInt(selEl.value)||null;
+      const itemName=selEl.options[selEl.selectedIndex]?.dataset.name||'';
+      const unit=document.getElementById('scope-unit').value;
+      const qty=parseFloat(document.getElementById('scope-qty').value)||null;
+      const rate=parseFloat(document.getElementById('scope-rate').value)||null;
+      const amt=rate&&qty?parseFloat((rate*qty/10000000).toFixed(2)):null;
+      if(!itemId){showToast('Please select an item','error');return;}
+      if(!qty){showToast('Quantity is required','error');return;}
+      try {
+        await sbFetch('/rest/v1/lats_contract_scope',{method:'POST',body:{
+          contract_id:contractId, scope_item_id:itemId, item_name:itemName, unit, quantity:qty, rate, amount:amt
+        }});
+        closeModal();openContractDetail(contractId);showToast('Item added!','success');
+      } catch(e){showToast('Error: '+e.message,'error');}
+    }}
+  ]);
+  document.querySelector('.modal').classList.add('wide');
+}
+
+function onScopeSelect() {
+  const sel=document.getElementById('scope-sel');
+  const opt=sel.options[sel.selectedIndex];
+  document.getElementById('scope-unit').value=opt?.dataset.unit||'';
+}
+
+function calcScopeAmount() {
+  const rate=parseFloat(document.getElementById('scope-rate').value)||0;
+  const qty=parseFloat(document.getElementById('scope-qty').value)||0;
+  const el=document.getElementById('scope-amt');
+  if(el&&rate&&qty) el.value=(rate*qty/10000000).toFixed(2);
+}
+
+function openProgressEntry(scopeId, itemName, totalQty, unit, contractId) {
+  openModal('Record Progress — '+itemName, `
+    <div class="form-grid cols-2">
+      <div class="field"><label class="required">Entry Date</label><input type="date" id="prog-date" value="${new Date().toISOString().split('T')[0]}"></div>
+      <div class="field"><label class="required">Quantity Executed (${unit})</label><input type="number" step="0.001" id="prog-qty" placeholder="0.000"></div>
+      <div class="field" style="grid-column:1/-1"><label>Remarks</label><input id="prog-remarks" placeholder="Optional remarks"></div>
+    </div>`, [
+    {label:'Cancel',cls:'btn-secondary',action:closeModal},
+    {label:'Save Progress',cls:'btn-primary',action:async()=>{
+      const date=document.getElementById('prog-date').value;
+      const qty=parseFloat(document.getElementById('prog-qty').value)||null;
+      if(!date){showToast('Date is required','error');return;}
+      if(!qty){showToast('Quantity is required','error');return;}
+      try {
+        await sbFetch('/rest/v1/lats_progress',{method:'POST',body:{
+          contract_id:contractId, scope_id:scopeId, entry_date:date, quantity:qty,
+          remarks:document.getElementById('prog-remarks').value||null,
+          entered_by:currentUser.id
+        }});
+        closeModal();openContractDetail(contractId);showToast('Progress recorded!','success');
+      } catch(e){showToast('Error: '+e.message,'error');}
+    }}
+  ]);
+}
+
+
 
 function renderDashboard() {
   const myProjects = getMyProjects();
