@@ -1688,15 +1688,48 @@ async function deleteHead(id) {
 }
 
 // ── Programme Project Modal ──
-function openProgProjectModal(id, headId) {
+async function openProgProjectModal(id, headId) {
   const p = id ? progState.projects.find(x=>x.id===id) : null;
   const divUsers = (DB.users||[]).filter(u=>u.role==='nh_division');
-  const nhList = nhState.nhList||[];
-  openModal((p?'Edit':'Add')+' Project to Programme', `
-    <div class="form-grid cols-2">
+  const isDivUser = currentUser.role==='nh_division';
+  const curDiv = p?.division_id || (isDivUser ? currentUser.id : '');
+
+  // Load existing chainages from lats_project_chainages if linked
+  const linkedProjId = p?.lats_project_id;
+  let existingChainages = [];
+  if (linkedProjId) {
+    existingChainages = (nhState.projectChainages||[]).filter(pc=>pc.project_id===linkedProjId);
+  }
+  window._projChainages = existingChainages.length > 0
+    ? existingChainages.map(pc=>({chainage_from:pc.chainage_from,chainage_to:pc.chainage_to,place_from:pc.place_from||'',place_to:pc.place_to||'',nh_id:pc.nh_id||''}))
+    : [{chainage_from:'',chainage_to:'',place_from:'',place_to:'',nh_id:''}];
+
+  function chainageRowHtml(pc,i) {
+    return '<div id="pc-row-'+i+'" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:10px;background:var(--card);border-radius:6px;border:1px solid var(--border)">'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">NH Number</label>'+
+        '<select id="pc-nh-'+i+'">'+
+          '<option value="">—</option>'+
+          (nhState.nhList||[]).map(n=>'<option value="'+n.id+'"'+(pc.nh_id==n.id?' selected':'')+'>'+n.nh_number+'</option>').join('')+
+        '</select></div>'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">Ch. From (km)</label>'+
+        '<input type="number" step="0.001" id="pc-from-'+i+'" value="'+(pc.chainage_from!==''&&pc.chainage_from!==null?pc.chainage_from:'')+'" placeholder="0.000" oninput="updateProjChainage('+i+')"></div>'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">Place From</label>'+
+        '<input id="pc-pf-'+i+'" value="'+(pc.place_from||'')+'" placeholder="e.g. Pune"></div>'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">Ch. To (km)</label>'+
+        '<input type="number" step="0.001" id="pc-to-'+i+'" value="'+(pc.chainage_to||'')+'" placeholder="0.000" oninput="updateProjChainage('+i+')"></div>'+
+      '<div class="field" style="margin:0"><label style="font-size:11px">Place To</label>'+
+        '<input id="pc-pt-'+i+'" value="'+(pc.place_to||'')+'" placeholder="e.g. Nashik"></div>'+
+      (i>0?'<button type="button" onclick="removeProjChainage('+i+')" style="background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.4);border-radius:4px;color:#f87171;cursor:pointer;padding:6px 10px;align-self:end">✕</button>':'<div></div>')+
+    '</div>';
+  }
+
+  const chainageHtml = window._projChainages.map((pc,i)=>chainageRowHtml(pc,i)).join('');
+
+  openModal((p?'Edit':'Add')+' Project', `
+    <div class="form-grid cols-2" style="margin-bottom:16px">
       <div class="field" style="grid-column:1/-1">
         <label class="required">Project Name</label>
-        <input id="pp-name" value="${p?.name||''}" placeholder="e.g. Construction of 4-lane road from A to B">
+        <input id="pp-name" value="${p?.name||''}" placeholder="e.g. Construction of 4-lane road from Pune to Nashik">
       </div>
       <div class="field" style="grid-column:1/-1">
         <label>Description</label>
@@ -1704,58 +1737,201 @@ function openProgProjectModal(id, headId) {
       </div>
       <div class="field">
         <label class="required">Assign to Division</label>
-        <select id="pp-div">
-          <option value="">— Select Division —</option>
-          ${divUsers.map(d=>'<option value="'+d.id+'"'+(p?.division_id===d.id?' selected':'')+'>'+d.name+'</option>').join('')}
-        </select>
+        ${isDivUser
+          ? '<input id="pp-div" value="'+currentUser.id+'" type="hidden"><input value="'+currentUser.name+'" readonly style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4);width:100%">'
+          : '<select id="pp-div"><option value="">— Select Division —</option>'+divUsers.map(d=>'<option value="'+d.id+'"'+(curDiv==d.id?' selected':'')+'>'+d.name+'</option>').join('')+'</select>'}
       </div>
       <div class="field">
         <label>Expected Cost (₹ Crore)</label>
         <input type="number" id="pp-cost" value="${p?.expected_cost||''}" placeholder="0.00">
       </div>
-      <div class="field" style="grid-column:1/-1">
-        <label>NH Numbers (select multiple)</label>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:120px;overflow-y:auto">
-          ${nhList.map(nh=>`<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px">
-            <input type="checkbox" value="${nh.id}" ${(p?.nh_ids||[]).includes(nh.id)?'checked':''} style="accent-color:var(--accent)">
-            ${nh.nh_number}
-          </label>`).join('')}
+      <div class="field">
+        <label>Expected Length (km)</label>
+        <input type="number" id="pp-len" value="${p?.length||''}" placeholder="0.000">
+      </div>
+    </div>
+
+    <!-- Chainage Segments -->
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:13px;font-weight:700;color:var(--accent)">📍 Chainage Segments</span>
+        <button type="button" onclick="addProjChainage()" class="btn btn-secondary btn-sm">+ Add Segment</button>
+      </div>
+      <div id="proj-chainage-rows">${chainageHtml}</div>
+      <div id="proj-chainage-total" style="font-size:12px;color:#4ade80;margin-top:4px"></div>
+    </div>
+
+    <!-- LA Section -->
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <span style="font-size:13px;font-weight:700;color:var(--accent)">🏗 Land Acquisition</span>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="pp-la-req" ${p?.la_required?'checked':''} onchange="toggleLASection()" style="width:16px;height:16px;accent-color:var(--accent)">
+          LA Required?
+        </label>
+      </div>
+      <div id="la-section" style="display:${p?.la_required?'block':'none'}">
+        <div class="form-grid cols-2">
+          <div class="field"><label>Expected Total Area (Ha)</label>
+            <input type="number" id="pp-la-total" value="${p?.la_total_area||''}" placeholder="0.0000" oninput="calcLAAcquire()"></div>
+          <div class="field"><label>Land Available (Ha)</label>
+            <input type="number" id="pp-la-avail" value="${p?.la_avail_area||''}" placeholder="0.0000" oninput="calcLAAcquire()"></div>
+          <div class="field"><label>Land to Acquire (Ha) <span style="font-size:10px;color:#4ade80">(auto)</span></label>
+            <input type="number" id="pp-la-acquire" value="${p?.la_acquire_area||''}" readonly style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.4)"></div>
+          <div class="field"><label>Length Affected (km)</label>
+            <input type="number" id="pp-la-length" value="${p?.la_length_affected||''}" placeholder="0.000"></div>
         </div>
       </div>
-    </div>`, [
+    </div>
+
+    <!-- Forest Section -->
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <span style="font-size:13px;font-weight:700;color:#22c55e">🌳 Forest & Wildlife Clearance</span>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="pp-forest-req" ${p?.forest_required?'checked':''} onchange="toggleForestSection()" style="width:16px;height:16px;accent-color:var(--accent)">
+          Forest Clearance Required?
+        </label>
+      </div>
+      <div id="forest-section" style="display:${p?.forest_required?'block':'none'}">
+        <div class="form-grid cols-2">
+          <div class="field"><label>Forest Area (Ha)</label>
+            <input type="number" id="pp-forest-area" value="${p?.forest_area||''}" placeholder="0.0000"></div>
+          <div class="field"><label>Length Affected (km)</label>
+            <input type="number" id="pp-forest-length" value="${p?.forest_length||''}" placeholder="0.000"></div>
+        </div>
+      </div>
+    </div>
+  `, [
     {label:'Cancel',cls:'btn-secondary',action:closeModal},
-    {label:p?'Update':'Add Project',cls:'btn-primary',action:async()=>{
-      const name = document.getElementById('pp-name').value.trim();
-      const divId = document.getElementById('pp-div').value;
-      if (!name) { showToast('Project name required','error'); return; }
-      if (!divId) { showToast('Please assign a division','error'); return; }
-      const nhIds = [...document.querySelectorAll('#pp-name ~ * input[type=checkbox]:checked, .modal input[type=checkbox]:checked')]
-        .map(cb=>parseInt(cb.value)).filter(Boolean);
-      const body = {
-        name, head_id: headId||p?.head_id,
-        description: document.getElementById('pp-desc').value||null,
-        division_id: parseInt(divId),
-        expected_cost: parseFloat(document.getElementById('pp-cost').value)||null,
-        nh_ids: nhIds.length>0?nhIds:null
-      };
-      try {
-        if (p) {
-          await sbFetch('/rest/v1/lats_prog_projects?id=eq.'+id, {method:'PATCH', body, headers:{'Prefer':'return=representation'}});
-        } else {
-          await sbFetch('/rest/v1/lats_prog_projects', {method:'POST', body, headers:{'Prefer':'return=representation'}});
-        }
-        progState.projects = await sbFetch('/rest/v1/lats_prog_projects?order=id');
-        closeModal(); renderProgramme();
-        showToast('Project saved!','success');
-      } catch(e) { showToast('Error: '+e.message,'error'); }
-    }}
+    {label:p?'Update Project':'Add Project',cls:'btn-primary',action:()=>saveProgProject(id,headId)}
   ]);
   document.querySelector('.modal').classList.add('wide');
-  // Wire up add-head-btn dynamically
-  setTimeout(()=>{
-    document.getElementById('add-head-btn')?.addEventListener('click', ()=>openHeadModal(progState.selectedFY?.id));
-  }, 100);
+  updateProjChainageTotal();
 }
+
+async function saveProgProject(id, headId) {
+  const name = document.getElementById('pp-name').value.trim();
+  if (!name) { showToast('Project name required','error'); return; }
+  const divId = document.getElementById('pp-div')?.value;
+  if (!divId) { showToast('Please assign a division','error'); return; }
+
+  const laReq = document.getElementById('pp-la-req')?.checked||false;
+  const forestReq = document.getElementById('pp-forest-req')?.checked||false;
+
+  // Collect chainage segments
+  const chainages = (window._projChainages||[]).filter(Boolean).map((pc,i)=>({
+    nh_id: parseInt(document.getElementById('pc-nh-'+i)?.value)||null,
+    chainage_from: document.getElementById('pc-from-'+i)?.value,
+    chainage_to: document.getElementById('pc-to-'+i)?.value,
+    place_from: document.getElementById('pc-pf-'+i)?.value||'',
+    place_to: document.getElementById('pc-pt-'+i)?.value||'',
+  })).filter(pc=>pc.chainage_from!==''&&pc.chainage_from!==undefined);
+
+  const totalLen = chainages.reduce((s,pc)=>s+((parseFloat(pc.chainage_to)||0)-(parseFloat(pc.chainage_from)||0)),0);
+  const p = id ? progState.projects.find(x=>x.id===id) : null;
+
+  const progBody = {
+    name, head_id: headId||p?.head_id,
+    description: document.getElementById('pp-desc').value||null,
+    division_id: parseInt(divId),
+    expected_cost: parseFloat(document.getElementById('pp-cost').value)||null,
+    length: totalLen>0?parseFloat(totalLen.toFixed(3)):(parseFloat(document.getElementById('pp-len').value)||null),
+    la_required: laReq,
+    la_total_area: laReq?(parseFloat(document.getElementById('pp-la-total').value)||null):null,
+    la_avail_area: laReq?(parseFloat(document.getElementById('pp-la-avail').value)||null):null,
+    la_acquire_area: laReq?(parseFloat(document.getElementById('pp-la-acquire').value)||null):null,
+    la_length_affected: laReq?(parseFloat(document.getElementById('pp-la-length').value)||null):null,
+    forest_required: forestReq,
+    forest_area: forestReq?(parseFloat(document.getElementById('pp-forest-area').value)||null):null,
+    forest_length: forestReq?(parseFloat(document.getElementById('pp-forest-length').value)||null):null,
+  };
+
+  try {
+    let progProjId;
+    if (id) {
+      await sbFetch('/rest/v1/lats_prog_projects?id=eq.'+id, {method:'PATCH', body:progBody, headers:{'Prefer':'return=representation'}});
+      progProjId = id;
+      // Also update linked lats_projects if exists
+      if (p?.lats_project_id) {
+        await sbFetch('/rest/v1/lats_projects?id=eq.'+p.lats_project_id, {method:'PATCH',
+          body:{name, division:divId, nh_id:chainages[0]?.nh_id||null,
+            la_required:laReq, forest_required:forestReq,
+            length:progBody.length, tpc:progBody.expected_cost},
+          headers:{'Prefer':'return=representation'}});
+      }
+      showToast('Project updated!','success');
+    } else {
+      // Create in prog_projects
+      const r = await sbFetch('/rest/v1/lats_prog_projects', {method:'POST', body:progBody, headers:{'Prefer':'return=representation'}});
+      const created = Array.isArray(r)?r[0]:r;
+      progProjId = created?.id;
+
+      // Also create in lats_projects for NH management
+      const lpBody = {
+        name, status:'draft', assigned_users:'{}',
+        division:DB.users.find(u=>u.id===parseInt(divId))?.name||'',
+        nh_id:chainages[0]?.nh_id||null,
+        la_required:laReq, forest_required:forestReq,
+        length:progBody.length, tpc:progBody.expected_cost,
+        prog_project_id:progProjId
+      };
+      const lr = await sbFetch('/rest/v1/lats_projects', {method:'POST', body:lpBody, headers:{'Prefer':'return=representation'}});
+      const lCreated = Array.isArray(lr)?lr[0]:lr;
+
+      // Link back
+      if (progProjId && lCreated?.id) {
+        await sbFetch('/rest/v1/lats_prog_projects?id=eq.'+progProjId, {method:'PATCH',
+          body:{lats_project_id:lCreated.id}, headers:{'Prefer':'return=representation'}});
+      }
+      showToast('Project added!','success');
+    }
+
+    // Save chainage segments
+    if (progProjId) {
+      const linkedProj = progState.projects.find(x=>x.id===progProjId);
+      const latsProjId = linkedProj?.lats_project_id || (id ? null : null);
+      // Get fresh lats_project_id
+      const fresh = await sbFetch('/rest/v1/lats_prog_projects?id=eq.'+progProjId+'&select=lats_project_id');
+      const lpId = (Array.isArray(fresh)?fresh[0]:fresh)?.lats_project_id;
+      if (lpId && chainages.length>0) {
+        await sbFetch('/rest/v1/lats_project_chainages?project_id=eq.'+lpId, {method:'DELETE'});
+        for (let i=0;i<chainages.length;i++) {
+          const pc = chainages[i];
+          await sbFetch('/rest/v1/lats_project_chainages', {method:'POST', body:{
+            project_id:lpId,
+            nh_id:pc.nh_id||null,
+            chainage_from:pc.chainage_from!==''?parseFloat(pc.chainage_from):null,
+            chainage_to:pc.chainage_to!==''?parseFloat(pc.chainage_to):null,
+            place_from:pc.place_from||null, place_to:pc.place_to||null, sort_order:i
+          }});
+        }
+      }
+    }
+
+    // Reload
+    progState.projects = await sbFetch('/rest/v1/lats_prog_projects?order=id');
+    const freshProjects = await sbFetch('/rest/v1/lats_projects?select=*&order=id');
+    DB.projects = (freshProjects||[]).map(p=>({
+      id:p.id, name:p.name, tafsNo:p.tafs_no, tafsDate:p.tafs_date||'', length:p.length, tpc:p.tpc,
+      civilCost:p.civil_cost, laCost:p.la_cost, totalLand:p.total_land,
+      availLand:p.avail_land, laRequired:p.la_required, laLength:p.la_length,
+      laLengthTafs:p.la_length_tafs, approvalDate:p.approval_date,
+      assignedUsers:p.assigned_users||[], nhId:p.nh_id?parseInt(p.nh_id):null,
+      division:p.division||'', status:p.status||'draft',
+      laRequired2:p.la_required||false, laTotalArea:p.la_total_area||'',
+      laAvailArea:p.la_avail_area||'', laAcquireArea:p.la_acquire_area||'',
+      laLengthAffected:p.la_length_affected||'',
+      forestRequired:p.forest_required||false, forestArea:p.forest_area||'',
+      forestLength:p.forest_length||''
+    }));
+    const allChainages = await sbFetch('/rest/v1/lats_project_chainages?order=project_id,sort_order');
+    nhState.projectChainages = allChainages||[];
+
+    closeModal(); renderProgramme();
+  } catch(e) { showToast('Error: '+e.message,'error'); console.error(e); }
+}
+
 
 async function deleteProgProject(id) {
   confirmModal('Delete this project from the programme?', async()=>{
