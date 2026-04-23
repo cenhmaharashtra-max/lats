@@ -3099,6 +3099,24 @@ function nextStatus(p) {
 // Called from Programme:     showProjectModal(id, {headId: X})
 // ═══════════════════════════════════════════════════════
 
+function toggleLASection() {
+  const show = document.getElementById('pf-la-req')?.checked;
+  document.getElementById('la-section').style.display = show ? 'block' : 'none';
+}
+
+function toggleForestSection() {
+  const show = document.getElementById('pf-forest-req')?.checked;
+  document.getElementById('forest-section').style.display = show ? 'block' : 'none';
+}
+
+function calcLAAcquire() {
+  const total = parseFloat(document.getElementById('pf-la-total')?.value)||0;
+  const avail = parseFloat(document.getElementById('pf-la-avail')?.value)||0;
+  const el = document.getElementById('pf-la-acquire');
+  if (el) el.value = total > 0 ? Math.max(0, total - avail).toFixed(4) : '';
+}
+
+
 async function showProjectModal(id, context) {
   context = context || {};
   const p = id ? DB.projects.find(x=>x.id===id) : null;
